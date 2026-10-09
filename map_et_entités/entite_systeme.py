@@ -202,19 +202,19 @@ class Archer_Cavalier(unité):
              self.hitbox=0.5
              #self.image=image2 # je sais pas encore si on le fera ici ou dans une autre partie donc je le mets en temporaire
 class Onagre(unité):
-    def __init__(self, id, x, y, equipe):
-        super().__init__(id, x, y, 60, 0.6, equipe)
-        self.type="siege"
-        self.hitbox=0.6
-        self.armor_melee=0
-        self.armor_pierce=8
-        self.bonus_armor={"Siege Units":0,"Unblockable Melee":0}
-        self.attack_base=55
-        self.attack_type="melee"
-        self.bonus_attacks={"All Buildings": 45,"Siege Units":12,"Heavy Siege":50}
-        self.portee=8.0
-        self.portee_min=3.0
-        self.reload=6.0
-        self.line_of_sight=10.0    
+ def __init__(self, id, x, y, equipe):
+             super().__init__(id, x, y, 60, 0.6, equipe)
+             self.type="siege"
+             self.hitbox=0.6
+             self.armor_melee=0
+             self.armor_pierce=8
+             self.bonus_armor={"Siege Units":0,"Unblockable Melee":0}
+             self.attack_base=55
+             self.attack_type="melee"
+             self.bonus_attacks={"All Buildings": 45,"Siege Units":12,"Heavy Siege":50}
+             self.portee=8.0
+             self.portee_min=3.0
+             self.reload=6.0
+             self.line_of_sight=10.0    
 
         
