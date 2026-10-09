@@ -7,3 +7,6 @@ from classes.entite_systeme import entité, unité, Château, Chevalier, piquier
 #from fonctions.formation import 
 #from fonctions.partie_graphique import
 #from IA.partie_ia import
+
+if __name__ == "__main__":
+    print("hello world")
