@@ -1,10 +1,9 @@
 import pygame
 import math
 class entité:
-    def __init__(self, id,x,y,pv_max,equipe):
+    def __init__(self, id,x,y,pv_max):
         self.id = id
         self.type = "none"
-        self.equipe =equipe
         self.x=float(x)
         self.y=float(y)
         self.pv_max=pv_max #utile si on veut savoir quel est le pourcentage de la santé de l'unité
@@ -45,8 +44,7 @@ class entité:
             for type, bonus_value in self.bonus_attacks.items():
                 if type in cible.bonus_armor:
                     dégats_bonus = dégats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
-            kelev=1 #si on a le temps on l'implémentera dans une classe carte plus tard
-            dégats_totaux=max(1,kelev*(dégats_initiaux+dégats_bonus))
+            dégats_totaux=max(1,(dégats_initiaux+dégats_bonus))
             cible.recevoir_dégats(dégats_totaux)
             self.cooldown=self.reload #remise à zéro
         else:
@@ -93,7 +91,7 @@ class unité(entité):
                 return 0
 class Château(entité):
     def __init__(self, id,x,y):
-        super().__init__(id,x,y,4800,"Sparte",)
+        super().__init__(id,x,y,4800)
         self.type="batiment"
         self.hitbox=2
         self.armor_melee=8
@@ -108,8 +106,8 @@ class Château(entité):
         self.line_of_sight=11
         self.image="none"#pygame.image.load("à saisir")
 class Chevalier(unité):
-    def __init__(self,id,x,y,equipe):
-        super().__init__(id,x,y,100,equipe,1.35)
+    def __init__(self,id,x,y):
+        super().__init__(id,x,y,100,1.35)
         self.type="cavalerie"
         self.armor_melee=2
         self.armor_pierce=2
@@ -124,8 +122,8 @@ class Chevalier(unité):
         self.hitbox=0.5
         self.image="none"#pygame.image.load("à saisir")
 class piquier(unité):
-    def __init__(self, id,x,y,equipe):
-        super().__init__(id,x,y,55,equipe,1)
+    def __init__(self, id,x,y):
+        super().__init__(id,x,y,55,1)
         self.type="infanterie"
         self.armor_melee=0
         self.armor_pierce=0
@@ -141,8 +139,8 @@ class piquier(unité):
         self.image="none"#pygame.image.load("à saisir")
         #
 class Arbaletrier(unité):
-    def __init__(self, id,x,y,equipe):
-        super().__init__(id,x,y,35,equipe,0.96)
+    def __init__(self, id,x,y):
+        super().__init__(id,x,y,35,0.96)
         self.type="archer"
         self.armor_melee=0
         self.armor_pierce=0
@@ -157,8 +155,8 @@ class Arbaletrier(unité):
         self.hitbox=0.4
         self.image="none"#pygame.image.load("à saisir")
 class Epeiste_epee_longue(unité):
-    def __init__(self, id,x,y,equipe):
-            super().__init__(id,x,y,60,equipe,0.96)
+    def __init__(self, id,x,y):
+            super().__init__(id,x,y,60,.96)
             self.type="infanterie"
             self.armor_melee=1
             self.armor_pierce=1
@@ -173,8 +171,8 @@ class Epeiste_epee_longue(unité):
             self.hitbox=0.4
             self.image="none"#pygame.image.load("à saisir")
 class Tirailleur_elite(unité):
- def __init__(self, id,x,y,equipe):
-             super().__init__(id,x,y,35,equipe,0.96)
+ def __init__(self, id,x,y):
+             super().__init__(id,x,y,35,0.96)
              self.type="infantery"
              self.armor_melee=0
              self.armor_pierce=4
