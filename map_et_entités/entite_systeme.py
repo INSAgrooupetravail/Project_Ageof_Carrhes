@@ -3,7 +3,7 @@ class entité:
     def __init__(self, id,x,y,pv_max,equipe):
         self.id = id
         self.type = "none"
-        self.equipe
+        self.equipe=equipe
         self.x=float(x)
         self.y=float(y)
         self.pv_max=pv_max #utile si on veut savoir quel est le pourcentage de la santé de l'unité
@@ -57,8 +57,8 @@ class entité:
         if self.cooldown>0:
             self.cooldown=max(0,self.cooldown-temps) 
 class unité(entité):
-    def __init__(self, id,x,y,pv_max,vitesse: float):
-        super().__init__(id,x,y,pv_max)
+    def __init__(self, id,x,y,pv_max,vitesse: float,equipe):
+        super().__init__(id,x,y,pv_max,equipe)
         self.vitesse=float(vitesse)
         self.destx=float(x) #pour savoir où l'unité doit aller
         self.desty=float(y)
@@ -91,7 +91,7 @@ class unité(entité):
                 return 0
 class Château(entité):
     def __init__(self, id,x,y,equipe):
-        super().__init__(id,x,y,4800)
+        super().__init__(id,x,y,4800,equipe)
         self.type="batiment"
         self.hitbox=2
         self.armor_melee=8
@@ -107,7 +107,7 @@ class Château(entité):
         #self.image=image2
 class Chevalier(unité):
     def __init__(self,id,x,y,equipe):
-        super().__init__(id,x,y,100,1.35)
+        super().__init__(id,x,y,100,1.35,equipe)
         self.type="cavalerie"
         self.armor_melee=2
         self.armor_pierce=2
@@ -123,11 +123,11 @@ class Chevalier(unité):
         #self.image=image2
 class piquier(unité):
     def __init__(self, id,x,y,equipe):
-        super().__init__(id,x,y,55,1)
+        super().__init__(id,x,y,55,1,equipe)
         self.type="infanterie"
         self.armor_melee=0
         self.armor_pierce=0
-        self.bonus_armor={"spear Units":2,"Infantry":0,"Obsolete":0}
+        self.bonus_armor={"Spearmen":0,"Infantry":0,"Unblockable Melee":0}
         self.attack_base=4
         self.attack_type="melee"
         self.bonus_attacks={"shock Infantry":1,"Standard Buildings":1,"Elephants":25,"Mounted Units":22,"Ships":16,"Camels":18,"Mamelukes":7,"Fishing Ships":16}
@@ -139,7 +139,7 @@ class piquier(unité):
         #self.image=image2
 class Arbaletrier(unité):
     def __init__(self, id,x,y,equipe):
-        super().__init__(id,x,y,35,0.96)
+        super().__init__(id,x,y,35,0.96,equipe)
         self.type="archer"
         self.armor_melee=0
         self.armor_pierce=0
@@ -155,14 +155,14 @@ class Arbaletrier(unité):
         #self.image=image2
 class Epeiste_epee_longue(unité):
     def __init__(self, id,x,y,equipe):
-            super().__init__(id,x,y,60,.96)
+            super().__init__(id,x,y,60,.96,equipe)
             self.type="infanterie"
             self.armor_melee=1
             self.armor_pierce=1
             self.bonus_armor={"Infantry":0,"Unblockable Melee":0}
             self.attack_base=9
             self.attack_type="melee"
-            self.bonus_attacks={"shock Infantry":3,"Standard Buildings":9,"Mounted Units":0,"Camels":0,"All Archers":0}
+            self.bonus_attacks={"shock Infantry":8,"Standard Buildings":3,"Mounted Units":0,"Camels":0,"All Archers":0}
             self.portee=0
             self.portee_min=0
             self.reload=2
@@ -171,7 +171,7 @@ class Epeiste_epee_longue(unité):
             #self.image=image2
 class Tirailleur_elite(unité):
  def __init__(self, id,x,y,equipe):
-             super().__init__(id,x,y,35,0.96)
+             super().__init__(id,x,y,35,0.96,equipe)
              self.type="infantery"
              self.armor_melee=0
              self.armor_pierce=4
@@ -185,3 +185,36 @@ class Tirailleur_elite(unité):
              self.line_of_sight=7
              self.hitbox=0.4
              #self.image=image2 # je sais pas encore si on le fera ici ou dans une autre partie donc je le mets en temporaire
+class Archer_Cavalier(unité):
+ def __init__(self, id,x,y,equipe):
+             super().__init__(id,x,y,50,1.4,equipe)
+             self.type="Cavalerie"
+             self.armor_melee=0
+             self.armor_pierce=0
+             self.bonus_armor={"Mounted Archers":0,"All Archers":0,"Mounted Units":0,"Unblockable Melee":0}
+             self.attack_base=6
+             self.attack_type="pierce"
+             self.bonus_attacks={"Spearmen":2,"Standard Buildings":0,"All Archers":0,"Hight Pierce Armor Siege Units":0,"Skirmishers":0}
+             self.portee=4
+             self.portee_min=0
+             self.reload=2
+             self.line_of_sight=5
+             self.hitbox=0.5
+             #self.image=image2 # je sais pas encore si on le fera ici ou dans une autre partie donc je le mets en temporaire
+class Onagre(unité):
+    def __init__(self, id, x, y, equipe):
+        super().__init__(id, x, y, 60, 0.6, equipe)
+        self.type="siege"
+        self.hitbox=0.6
+        self.armor_melee=0
+        self.armor_pierce=8
+        self.bonus_armor={"Siege Units":0,"Unblockable Melee":0}
+        self.attack_base=55
+        self.attack_type="melee"
+        self.bonus_attacks={"All Buildings": 45,"Siege Units":12,"Heavy Siege":50}
+        self.portee=8.0
+        self.portee_min=3.0
+        self.reload=6.0
+        self.line_of_sight=10.0    
+
+        
