@@ -184,4 +184,3 @@ class Tirailleur_elite(unité):
              self.line_of_sight=7
              self.hitbox=0.4
              #self.image=image2 # je sais pas encore si on le fera ici ou dans une autre partie donc je le mets en temporaire
-#abcdelfzmsfozpe
