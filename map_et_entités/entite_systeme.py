@@ -1,8 +1,9 @@
 import math
 class entité:
-    def __init__(self, id,x,y,pv_max):
+    def __init__(self, id,x,y,pv_max,equipe):
         self.id = id
         self.type = "none"
+        self.equipe
         self.x=float(x)
         self.y=float(y)
         self.pv_max=pv_max #utile si on veut savoir quel est le pourcentage de la santé de l'unité
@@ -89,7 +90,7 @@ class unité(entité):
             else:
                 return 0
 class Château(entité):
-    def __init__(self, id,x,y):
+    def __init__(self, id,x,y,equipe):
         super().__init__(id,x,y,4800)
         self.type="batiment"
         self.hitbox=2
@@ -105,7 +106,7 @@ class Château(entité):
         self.line_of_sight=11
         #self.image=image2
 class Chevalier(unité):
-    def __init__(self,id,x,y):
+    def __init__(self,id,x,y,equipe):
         super().__init__(id,x,y,100,1.35)
         self.type="cavalerie"
         self.armor_melee=2
@@ -121,7 +122,7 @@ class Chevalier(unité):
         self.hitbox=0.5
         #self.image=image2
 class piquier(unité):
-    def __init__(self, id,x,y):
+    def __init__(self, id,x,y,equipe):
         super().__init__(id,x,y,55,1)
         self.type="infanterie"
         self.armor_melee=0
@@ -137,7 +138,7 @@ class piquier(unité):
         self.hitbox=0.4
         #self.image=image2
 class Arbaletrier(unité):
-    def __init__(self, id,x,y):
+    def __init__(self, id,x,y,equipe):
         super().__init__(id,x,y,35,0.96)
         self.type="archer"
         self.armor_melee=0
@@ -153,7 +154,7 @@ class Arbaletrier(unité):
         self.hitbox=0.4
         #self.image=image2
 class Epeiste_epee_longue(unité):
-    def __init__(self, id,x,y):
+    def __init__(self, id,x,y,equipe):
             super().__init__(id,x,y,60,.96)
             self.type="infanterie"
             self.armor_melee=1
@@ -169,7 +170,7 @@ class Epeiste_epee_longue(unité):
             self.hitbox=0.4
             #self.image=image2
 class Tirailleur_elite(unité):
- def __init__(self, id,x,y):
+ def __init__(self, id,x,y,equipe):
              super().__init__(id,x,y,35,0.96)
              self.type="infantery"
              self.armor_melee=0
