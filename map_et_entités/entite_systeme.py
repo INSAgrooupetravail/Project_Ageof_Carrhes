@@ -212,9 +212,130 @@ class Onagre(unité):
              self.attack_base=55
              self.attack_type="melee"
              self.bonus_attacks={"All Buildings": 45,"Siege Units":12,"Heavy Siege":50}
-             self.portee=8.0
-             self.portee_min=3.0
-             self.reload=6.0
-             self.line_of_sight=10.0    
+             self.portee=8
+             self.portee_min=3
+             self.reload=6
+             self.line_of_sight=10 
+class cavalerie_légère(unité):
+    def __init__(self, id,x,y,equipe):
+             super().__init__(id,x,y,60,1.5,equipe)
+             self.type="Cavalerie"
+             self.armor_melee=0
+             self.armor_pierce=2
+             self.bonus_armor={"Mounted Units":0,"Unblockable Melee":0}
+             self.attack_base=7
+             self.attack_type="melee"
+             self.bonus_attacks={"Monastery Units":10,"All Buildings":0,"Standard Buildings":0,"All Archers":0,"Skirmishers":0,"Siege Units":0,"Unblockable Melee":0}
+             self.portee=0
+             self.portee_min=0
+             self.reload=2
+             self.line_of_sight=4
+             self.hitbox=0.5
+class scorpion(unité):
+    def __init__(self, id, x, y, equipe):
+             super().__init__(id, x, y, 40, 0.65, equipe)
+             self.type="siege"
+             self.hitbox=0.6
+             self.armor_melee=0
+             self.armor_pierce=7
+             self.bonus_armor={"Siege Units":0,"Unblockable Melee":0}
+             self.attack_base=11
+             self.attack_type="melee"
+             self.bonus_attacks={"All Buildings": 3,"High Pierce Armor Siege Units":1,"Elephants":7,"Infantry":1}
+             self.portee=7
+             self.portee_min=2
+             self.reload=3.6
+             self.line_of_sight=9   
+class bélier_renforcé(unité):
+    def __init__(self, id, x, y, equipe):
+             super().__init__(id, x, y, 200, 0.6, equipe)
+             self.type="siege"
+             self.hitbox=0.6
+             self.armor_melee=-2
+             self.armor_pierce=190
+             self.bonus_armor={"Siege Units":0,"Unblockable Melee":0,"High Pierce Armor Siege Units":1}
+             self.attack_base=3
+             self.attack_type="melee"
+             self.bonus_attacks={"All Buildings": 160,"Siege Units":50}
+             self.portee=0
+             self.portee_min=0
+             self.reload=5
+             self.line_of_sight=5  
+class trébuchet(unité):
+    def __init__(self, id, x, y, equipe):
+             super().__init__(id, x, y, 150, 0.8, equipe)
+             self.type="siege"
+             self.hitbox=0.7
+             self.armor_melee=2
+             self.armor_pierce=8
+             self.bonus_armor={"Siege Units":0,"Unblockable Melee":0}
+             self.attack_base=200
+             self.attack_type="melee"
+             self.bonus_attacks={"All Buildings": 250}
+             self.portee=16
+             self.portee_min=4
+             self.reload=10
+             self.line_of_sight=19
+class Elephant_Elite(unité): #vaut mieux l'exlure des tests pour le moment (pas prioritaire)
+    def __init__(self, id, x, y, equipe):
+             super().__init__(id, x, y, 600, 0.8, equipe)
+             self.type="Cavalerie"
+             self.hitbox=0.6
+             self.armor_melee=1
+             self.armor_pierce=3
+             self.bonus_armor={"Mounted Units":0,"Elephants":0,"Unique Units":0,"Unblockable Melee":0}
+             self.attack_base=20
+             self.attack_type="melee"
+             self.bonus_attacks={"All Buildings": 30,"Stone Defense & Harbors":30,"All Archers":0,"Standard Buildings":0,"Skirmishers":0,"Siege Units":0,"Unblockable Melee":0}
+             self.portee=0
+             self.portee_min=0
+             self.reload=2
+             self.line_of_sight=8
+class Moine(unité): #vaut mieux l'exlure des tests pour le moment (pas prioritaire)/et fonctionnement complexe
+    def __init__(self, id, x, y, equipe):
+             super().__init__(id, x, y, 30, 0.7, equipe)
+             self.type="Guérisseur/Convertisseur" #comme il attaque pas je laisse les paramètres d'origines d'attaques définies dans entité
+             self.hitbox=0.4
+             self.armor_melee=0
+             self.armor_pierce=0
+             self.bonus_armor={"Monastery Units":0,"Unblockable Melee":0}
+             self.portee=9 #selon le wiki (pour la conversion) c'est pas précisé dans l'arbre d'AO2
+             self.portee_min=0
+             self.reload=5
+             self.line_of_sight=11
+             self.cooldown=self.reload
+    def Soigner_Autre_Unité(self,cible,temps:float):
+         if cible.vivant and cible.equipe==self.equipe and cible.type !="batiment" and cible.type !="siege":
+              distance=self.distance_avec(cible)
+              if distance <= 4:
+                   cible.pv=min(cible.pv_max,cible.pv+(112.5/60)*temps) #dans le wiki ils disent 150 PV*minutes et 75PV*minute par moine supplémentaire sur la même unité. 150+75/2=112.5 je prend la moyenne car on implémentera pas ou plus tard cette fonctionnalité
+                   return True
+         else:
+            return False
+    def Peut_Convertir(self,cible):
+         if not cible.vivant or cible.equipe==self.equipe or ((cible.type=="batiment" or cible.type=="siege") and self.distance_avec(cible)>0):
+              return False #les batiments et les sièges ne peuvent pas être convertis à distance 
+         else :
+              distance=self.distance_avec(cible)
+              if distance > self.portee or self.cooldown>0 :#le cooldown est géré par entité ça évite de mettre une variable supplémentaire même si la cooldown ne correspond pas à une attaque
+                   return False
+              else:
+               return True
+    def Convertir(self,cible):
+        if self.Peut_Convertir(cible)==True:
+             self.cooldown=self.reload
+             cible.equipe=self.equipe
+             return True
+        else:
+             return False
+#il restera une dernière unité mais je vais faire la classe Map et la clock avant
 
-        
+                         
+
+             
+                   
+
+                   
+              
+              
+
