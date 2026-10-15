@@ -23,42 +23,57 @@ class entité:
         self.hitbox=0
         self.vitesse_animation=0
         self.cooldown_animation=0
-        # faudra rajouter d'autres attributs certainement
+        self.cible_en_cours=None
     def distance_avec(self,cible):
         return math.hypot(self.x-cible.x,self.y-cible.y)
     def peut_attaquer(self, cible):
-        if not cible.vivant or cible.equipe == self.equipe or self.cooldown > 0:
-            return False
-        portee_max=max(self.portee, self.hitbox+cible.hitbox)
-        if abs(self.x-cible.x) > portee_max or abs(self.y -cible.y) > portee_max:
-            return False
-        distance=self.distance_avec(cible)
-        trop_proche= distance < self.portee_min
-        trop_loin=distance > portee_max
-        return not trop_proche and not trop_loin
-    def attaquer(self,cible): # à modifier 
-        if self.peut_attaquer(cible):
-            if self.attack_type=="melee":
+         if self.vivant:
+          if self.cooldown_animation>0:
+             return False
+          if not cible.vivant or cible.equipe == self.equipe or self.cooldown > 0:
+             return False
+          portee_max=max(self.portee, self.hitbox+cible.hitbox)
+          if abs(self.x-cible.x) > portee_max or abs(self.y -cible.y) > portee_max:
+             return False
+          distance=self.distance_avec(cible)
+          trop_proche= distance < self.portee_min
+          trop_loin=distance > portee_max
+          return not trop_proche and not trop_loin
+    def attaquer(self,cible):  
+            if cible.vivant and self.vivant:    
+             if self.attack_type=="melee":
                 armure=cible.armor_melee
-            elif self.attack_type=="pierce":
+             elif self.attack_type=="pierce":
                 armure=cible.armor_pierce
-            dégats_initiaux=(self.attack_base - armure)
-            dégats_bonus=0
-            for type, bonus_value in self.bonus_attacks.items():
+             dégats_initiaux=(self.attack_base - armure)
+             dégats_bonus=0
+             for type, bonus_value in self.bonus_attacks.items():
                 if type in cible.bonus_armor:
                     dégats_bonus = dégats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
-            dégats_totaux=max(1,(dégats_initiaux+dégats_bonus))
-            cible.recevoir_dégats(dégats_totaux)
-            self.cooldown=self.reload #remise à zéro
-        else:
-            return 0
-    def recevoir_dégats(self, dégats):
-        self.pv=self.pv-dégats
+             dégats_totaux=max(1,(dégats_initiaux+dégats_bonus))
+             cible.recevoir_dégats(dégats_totaux)
+            else:
+                return False
+    def lancement_animation(self,cible)   :
+        if self.peut_attaquer(cible):
+            self.cooldown_animation=self.vitesse_animation
+            self.cooldown=self.reload
+            self.cible_en_cours=cible
+    def recevoir_dégats(self,degats_totaux):
+        self.pv=self.pv-degats_totaux
         if self.pv <= 0:
             self.vivant=False
     def actualiser_le_cooldown(self,temps:float):
-        if self.cooldown>0:
-            self.cooldown=max(0,self.cooldown-temps) 
+        if self.vivant:
+         if self.cooldown>0:
+             self.cooldown=max(0,self.cooldown-temps) 
+    def actualiser_animation_time(self,temps:float):
+        if self.vivant:
+         if self.cooldown_animation>0:
+                    self.cooldown_animation=max(0,self.cooldown_animation-temps)
+                    if self.cooldown_animation==0 and self.cible_en_cours:
+                        self.attaquer(self.cible_en_cours)
+                        self.cible_en_cours=None
 class unité(entité):
     def __init__(self, id,x,y,pv_max,vitesse: float,equipe):
         super().__init__(id,x,y,pv_max,equipe)
