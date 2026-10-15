@@ -23,7 +23,7 @@ class entité:
         self.hitbox=0
         self.vitesse_animation=0
         self.cooldown_animation=0
-        self.cible_en_cours=None
+        self.cible_en_cours=None  #entité ciblé par l'ia
     def distance_avec(self,cible):
         return math.hypot(self.x-cible.x,self.y-cible.y)
     def peut_attaquer(self, cible):
@@ -80,12 +80,18 @@ class unité(entité):
         self.vitesse=float(vitesse)
         self.destx=float(x) #pour savoir où l'unité doit aller
         self.desty=float(y)
-        self.cible="none" #entité ciblé par l'ia
+        self.direction_x=0  #pour l'orientation des sprites 
+        self.direction_y=0
+    def vérifier_limites_OK(self,carte):
+        if carte.est_dans_la_carte(self.x,self.y,self.hitbox):
+            return True
+        else:
+            self.x,self.y=carte.anti_hors_limite(self.x,self.y,self.hitbox)
     def definir_destination(self,x:float,y:float):
         self.destx=x
         self.desty=y
     def avancer(self,temps:float,autres_entites:list,carte):
-        if self.vivant and self.vitesse>0:
+        if self.vivant and self.vitesse>0 and self.cooldown_animation==0:
             distance=math.hypot(self.destx-self.x,self.desty-self.y)                  
             if distance>=0.05:
                 pas_a_parcourir=min(distance,self.vitesse*temps)
@@ -93,7 +99,19 @@ class unité(entité):
                 nouveauy=(self.desty-self.y)/distance*pas_a_parcourir
                 futurx=self.x+nouveaux #après un temps delta que j'ai appellé nouveaux
                 futury=self.y+nouveauy
-                if map.est_dans_la_carte(futurx,futury):
+                if nouveaux>0:     #orientation en temps réel (0x pas d'orientation est(-1) ou ouest(1) , nord(1) ou sud(-1) pour y
+                 self.direction_x=1
+                elif nouveaux<0:
+                 self.direction_x=-1
+                else:
+                 self.direction_x=0
+                if nouveauy>0:  
+                 self.direction_y=1
+                elif nouveauy<0:
+                 self.direction_y=-1
+                else:
+                 self.direction_y=0
+                if carte.est_dans_la_carte(futurx,futury,self.hitbox):
                  for autre_entité in autres_entites:
                     if autre_entité is self or not autre_entité.vivant:
                         continue
@@ -102,8 +120,10 @@ class unité(entité):
                     if distance_future<rayon_min:  #test de collision puisque les unités ne peuvent pas se chevaucher
                         return 0
                         #aucun changement de position
-                self.x=futurx
-                self.y=futury
+                 self.x=futurx
+                 self.y=futury
+                else:
+                 self.x,self.y=carte.anti_hors_limite(futurx,futury,self.hitbox)
         return 0
 class Château(entité):
     def __init__(self, id,x,y,equipe):
@@ -137,4 +157,4 @@ class trébuchet(unité):
              self.line_of_sight=19   
  #             
 
-#à reprendre d'urgence (trompé de sujet)
+#plus qu'à implémenter les unités et leurs attaques
