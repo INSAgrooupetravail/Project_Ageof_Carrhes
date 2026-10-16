@@ -1,5 +1,6 @@
 import math
 from base_systeme.map_systeme import map
+import random
 class entité:
     def __init__(self, id,x,y,pv_max,equipe):
         self.id = id
@@ -24,6 +25,8 @@ class entité:
         self.vitesse_animation=0
         self.cooldown_animation=0
         self.cible_en_cours=None  #entité ciblé par l'ia
+        self.attaque_multiple=1
+        self.gen_type="Buildings"
     def distance_avec(self,cible):
         return math.hypot(self.x-cible.x,self.y-cible.y)
     def peut_attaquer(self, cible):
@@ -42,7 +45,10 @@ class entité:
     def attaquer(self,cible):  
             if cible.vivant and self.vivant:    
              if self.attack_type=="melee":
-                armure=cible.armor_melee
+                if not cible.armor_melee=="immortal":
+                 armure=cible.armor_melee
+                else:
+                   return False
              elif self.attack_type=="pierce":
                 armure=cible.armor_pierce
              dégats_initiaux=(self.attack_base - armure)
@@ -50,7 +56,8 @@ class entité:
              for type, bonus_value in self.bonus_attacks.items():
                 if type in cible.bonus_armor:
                     dégats_bonus = dégats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
-             dégats_totaux=max(1,(dégats_initiaux+dégats_bonus))
+             dégats_par_couts=max(1,(dégats_initiaux+dégats_bonus))
+             dégats_totaux=(self.attaque_multiple*dégats_par_couts)
              cible.recevoir_dégats(dégats_totaux)
             else:
                 return False
@@ -82,6 +89,8 @@ class unité(entité):
         self.desty=float(y)
         self.direction_x=0  #pour l'orientation des sprites 
         self.direction_y=0
+        self.gen_type="Unités"
+        self.chance={"Buildings":1,"Unités":1}
     def vérifier_limites_OK(self,carte):
         if carte.est_dans_la_carte(self.x,self.y,self.hitbox):
             return True
@@ -125,36 +134,120 @@ class unité(entité):
                 else:
                  self.x,self.y=carte.anti_hors_limite(futurx,futury,self.hitbox)
         return 0
+    def attaquer(self,cible):
+     if cible.vivant and self.vivant:    
+             if self.attack_type=="melee":
+                 armure=cible.armor_melee
+             elif self.attack_type=="pierce":
+                armure=cible.armor_pierce
+             dégats_initiaux=(self.attack_base - armure)
+             dégats_bonus=0
+             for type, bonus_value in self.bonus_attacks.items():
+                if type in cible.bonus_armor:
+                    dégats_bonus = dégats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
+             
+             #je rajoute la gestion de la chance ici et j'enlève les attaques multiples et autres qui concernaient que le chateau
+             for type, proba in self.chance.items():
+              if type==cible.gen_type:
+               if random.random()<=proba: #entre 0 et 1 donc si  infétrieur à 0.8 on  est bien à 80% de chance d'avoir - ou égal à 0.8
+                dégats_totaux=max(1,(dégats_initiaux+dégats_bonus))
+                cible.recevoir_dégats(dégats_totaux)
+               else:
+                return False
+     else:
+                return False       
 class Château(entité):
     def __init__(self, id,x,y,equipe):
         super().__init__(id,x,y,10000,equipe)
-        self.type="batiment"
+        self.type="castle"
         self.hitbox=2
-        self.armor_melee=999
+        self.armor_melee="immortal"
         self.armor_pierce=13
-        self.bonus_armor={"Castles & Kreposts": 0, "Standard Buildings":0,"All Buildings":8}
+        self.attaque_multiple=5 #c'est 5 fleches par attaque
+        self.bonus_armor={"Castle":0}
         self.attack_base=15
         self.attack_type="pierce"
-        self.bonus_attacks={"Spearmen":2}
         self.portee=11
         self.portee_min=0
         self.reload=2
-        self.animation_time=0.1
+        self.vitesse_animation=2 # les fleches seront envoyés en continue après les 2 premieres seconde
+class Legionnaire(unité):
+   def __init__(self, id,x,y,equipe):
+           super().__init__(id,x,y,75,1.06,equipe)
+           self.type="legionnaire"
+           self.hitbox=0.2
+           self.armor_melee=6
+           self.armor_pierce=6
+           self.attack_base=16
+           self.vitesse_animation=1.26
+           self.attack_type="melee"
+           self.reload=2
+   def verifier_shield_wall(self,autres_entités:list):
+       compteur=0
+       for element in autres_entités:
+         if element is not self and element.vivant and element.type==self.type and element.equipe==self.equipe:
+            if self.distance_avec(element)<=0.42:
+             compteur=compteur+1
+       if compteur>=4:
+          return True
+       else:
+          return False
+   def activer_shield_wall(self,autres_entités:list):
+     if self.verifier_shield_wall(autres_entités):
+       self.armor_pierce=12
+     else:
+        self.armor_pierce=6     
 class trébuchet(unité):
     def __init__(self, id, x, y, equipe):
-             super().__init__(id, x, y, 150, 0.8, equipe)
+             super().__init__(id, x, y, 150, 0, equipe)
              self.type="siege"
-             self.hitbox=0.7
+             self.hitbox=0.5
              self.armor_melee=2
              self.armor_pierce=8
-             self.bonus_armor={"Siege Units":0,"Unblockable Melee":0}
              self.attack_base=200
              self.attack_type="melee"
-             self.bonus_attacks={"All Buildings": 250}
+             self.bonus_attacks={"Castle": 250}
              self.portee=16
              self.portee_min=4
              self.reload=10
-             self.line_of_sight=19   
+             self.temps_mode=11.00
+             self.cooldown_temps_mode=0
+             self.vitesse_animation=1.00
+             self.mode="immobile"
+             self.changer_mode=False
+             self.chance={"Buildings":0.8,"Unités":0.15}
+    def immobile(self):
+       self.mode="immobile"
+       self.chance={"Buildings":0.8,"Unités":0.15}
+       self.vitesse=0
+    def en_mouvement(self):
+       self.mode="en-mouvement"
+       self.chance={"Buildings":0,"Unités":0}
+       self.vitesse=0.8
+    def peut_attaquer(self,cible):
+       if self.vivant and self.mode=="immobile"and self.changer_mode==False:
+                 return super().peut_attaquer(cible)
+       else:
+          return False
+    def initialiser_changer_mode(self):
+       self.changer_mode=True
+       self.cooldown_temps_mode=self.temps_mode
+       self.vitesse=0
+    def choisir_changer_mode(self):
+       self.changer_mode=False
+       if self.mode=="immobile":
+          self.immobile()
+       else:
+          self.en_mouvement()
+    def actualiser(self,temps:float):
+       if self.vivant:
+                if self.cooldown_temps_mode>0:
+                    self.cooldown_temps_mode=max(0,self.cooldown_temps_mode-temps) 
+                    if self.cooldown_temps_mode<=0:
+                       if self.changer_mode==True:
+                          self.choisir_changer_mode()
+    
+
  #             
 
 #plus qu'à implémenter les unités et leurs attaques
