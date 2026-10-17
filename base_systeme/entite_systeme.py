@@ -1,7 +1,7 @@
 import math
 from base_systeme.map_systeme import map
 import random
-class entité:
+class Entité:
     def __init__(self, id,x,y,pv_max,equipe):
         self.id = id
         self.type = "none"
@@ -74,17 +74,21 @@ class entité:
         if self.vivant:
          if self.cooldown>0:
              self.cooldown=max(0,self.cooldown-temps) 
-    def actualiser_animation_time(self,temps:float):
+    def actualiser_animation_time(self,temps:float,autres_entites:list=None): #ajout d'argument facultatif pour gérer le cataphractaire
         if self.vivant:
          if self.cooldown_animation>0:
                     self.cooldown_animation=max(0,self.cooldown_animation-temps)
                     if self.cooldown_animation==0 and self.cible_en_cours:
-                        self.attaquer(self.cible_en_cours)
-                        self.cible_en_cours=None
-class unité(entité):
-    def __init__(self, id,x,y,pv_max,vitesse: float,equipe):
+                        if not self.type=="cataphractaire":
+                         self.attaquer(self.cible_en_cours)
+                         self.cible_en_cours=None
+                        else:
+                            self.attaquer(self.cible_en_cours,autres_entites)
+                            self.cible_en_cours=None
+class Unité(Entité):
+    def __init__(self, id,x,y,pv_max,equipe):
         super().__init__(id,x,y,pv_max,equipe)
-        self.vitesse=float(vitesse)
+        self.vitesse=float(0)
         self.destx=float(x) #pour savoir où l'unité doit aller
         self.desty=float(y)
         self.direction_x=0  #pour l'orientation des sprites 
@@ -156,7 +160,7 @@ class unité(entité):
                 return False
      else:
                 return False       
-class Château(entité):
+class Château(Entité):
     def __init__(self, id,x,y,equipe):
         super().__init__(id,x,y,10000,equipe)
         self.type="castle"
@@ -171,10 +175,11 @@ class Château(entité):
         self.portee_min=0
         self.reload=2
         self.vitesse_animation=2 # les fleches seront envoyés en continue après les 2 premieres seconde
-class Legionnaire(unité):
+class Legionnaire(Unité):
    def __init__(self, id,x,y,equipe):
-           super().__init__(id,x,y,75,1.06,equipe)
+           super().__init__(id,x,y,75,equipe)
            self.type="legionnaire"
+           self.vitesse=1.06
            self.hitbox=0.2
            self.armor_melee=6
            self.armor_pierce=6
@@ -197,15 +202,16 @@ class Legionnaire(unité):
        self.armor_pierce=12
      else:
         self.armor_pierce=6     
-class trébuchet(unité):
+class Trébuchet(Unité):
     def __init__(self, id, x, y, equipe):
-             super().__init__(id, x, y, 150, 0, equipe)
+             super().__init__(id, x, y, 150,equipe)
              self.type="siege"
              self.hitbox=0.5
+             self.vitesse=0
              self.armor_melee=2
              self.armor_pierce=8
              self.attack_base=200
-             self.attack_type="melee"
+             self.attack_type="pierce"
              self.bonus_attacks={"Castle": 250}
              self.portee=16
              self.portee_min=4
@@ -235,7 +241,7 @@ class trébuchet(unité):
        self.vitesse=0
     def choisir_changer_mode(self):
        self.changer_mode=False
-       if self.mode=="immobile":
+       if self.mode=="en-mouvement":
           self.immobile()
        else:
           self.en_mouvement()
@@ -249,5 +255,61 @@ class trébuchet(unité):
     
 
  #             
+class Archer_Cavalerie_Loude(Unité):
+   def __init__(self, id, x, y, equipe):
+                  super().__init__(id, x, y, 80, equipe)
+                  self.type="cavalerie"
+                  self.hitbox=0.25
+                  self.vitesse=1.44
+                  self.armor_melee=5
+                  self.armor_pierce=6
+                  self.attack_base=12
+                  self.attack_type="pierce"
+                  self.portee=8
+                  self.reload=1.8
+                  self.vitesse_animation=1.17
+                  self.chance={"Buildings":1,"Unités":1}           
+class Cataphractaire_Elite(Unité):
+    def __init__(self, id, x, y, equipe):
+                      super().__init__(id, x, y, 150,equipe)
+                      self.type="cataphractaire"
+                      self.hitbox=0.25
+                      self.vitesse=1.35
+                      self.armor_melee=5
+                      self.armor_pierce=5
+                      self.attack_base=14
+                      self.attack_type="melee"
+                      self.reload=1.7
+                      self.vitesse_animation=1.36
+    def attaquer(self,cible,autres_entités:list): #j'enleve la gestion de la chance c'est inutile pour le cataphractaire
+     if cible.vivant and self.vivant:    
+             if self.attack_type=="melee":
+                 armure=cible.armor_melee
+             elif self.attack_type=="pierce":
+                armure=cible.armor_pierce
+             dégats_initiaux=(self.attack_base - armure)
+             dégats_bonus=0
+             for type, bonus_value in self.bonus_attacks.items():
+                if type in cible.bonus_armor:
+                    dégats_bonus = dégats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
+                dégats_totaux=max(1,(dégats_initiaux+dégats_bonus))
+                cible.recevoir_dégats(dégats_totaux)
+             for element in autres_entités:
+                  if element is not self and element.vivant and element.gen_type==self.gen_type and element.equipe!=self.equipe and element is not cible:
+                   if self.distance_avec(element)<=0.75:
+                       cible2=element
+                       if self.attack_type=="melee":
+                         armure=cible.armor_melee
+                       elif self.attack_type=="pierce":
+                           armure=cible.armor_pierce
+                       dégats_initiaux=(self.attack_base - armure)
+                       dégats_bonus=0
+                       for type, bonus_value in self.bonus_attacks.items():
+                            if type in cible.bonus_armor:
+                                dégats_bonus = dégats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
+                            dégats_totaux=max(1,(dégats_initiaux+dégats_bonus))
+                            cible2.recevoir_dégats(dégats_totaux)
+     else:
+                return False    
 
-#plus qu'à implémenter les unités et leurs attaques
+#plus qu'à organiser et documenter
