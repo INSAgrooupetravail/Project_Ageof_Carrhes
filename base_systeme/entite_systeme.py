@@ -245,7 +245,7 @@ class Trébuchet(Unité):
           self.immobile()
        else:
           self.en_mouvement()
-    def actualiser(self,temps:float):
+    def actualiser_mode(self,temps:float):
        if self.vivant:
                 if self.cooldown_temps_mode>0:
                     self.cooldown_temps_mode=max(0,self.cooldown_temps_mode-temps) 
@@ -310,6 +310,91 @@ class Cataphractaire_Elite(Unité):
                             dégats_totaux=max(1,(dégats_initiaux+dégats_bonus))
                             cible2.recevoir_dégats(dégats_totaux)
      else:
-                return False    
+                return False
+""" 
+ [Utilisation]
+  [main/système global]
+    -Il faut appeller actualiser_animation_time , actualiser_cooldown , actualiser_mode et avancer à chaque tick
+      -actualiser_mode et actualiser_cooldown prend en entrée le temps (dt) (envoyé par la clock)
+      -actualiser_animation_time prend en entrée le temps (dt) et la liste des entités de la map
+      -avancer prend en entrée le temps (dt) , la liste des entités de la map et la map elle même
+    -Il faut mettre à jour la liste des entités de map au fur et à mesure du jeu
+      -suppression des entités mortes
 
-#plus qu'à organiser et documenter
+  [IA/formation/autre]
+    -chaque entité possède un id unique
+    -chaque entité possède un type qui permet de savoir si c'est le chateau ,  le legionnaire...
+    -pas de modification de x et y (les attributs x et y  sont initialisés à la génération mais sont ensuite gérés en interne dans la sous-classe unité)
+    -pour se déplacer on utilise definir_destination
+      -definir_destination prend en entrée  x et y représentant ici les coordonnées ciblées
+    -pour attaquer on appelle peut_attaquer qui vérifier qu'on a le droit d'attaquer les cibles (ex: ennemis,vivant à portée temps de rechargement écoulé)
+      -peut_attaquer prend en entrée cible (la cible chosi doit etre une autre entité) et renvoie True ou False
+    -Si peut_attaquer est True alors l'ia utilise lancement_animation qui ordonne à l'unité d'attaquer la cible
+      -lancement_animation prend en entrée la cible (la cible chosi doit etre une autre entité)
+    -Pour les légionnaires la méthode activer_shield_wall doit être appellé dans formation quand ce genre de formation est actif , la méthode verifier_shield_wall permet de vérifier que l'activation est bien possible et peut servir pour tester si formation fonctionne comme prévu
+      -verifier_shiels_wall prend en entrée la liste des entités sur la map (il n'est pas nécessaire de l'appeller selon moi)
+      -activer_shield_wall prend en entrée la liste des entités sur la map (nécessité de l'appeller régulièrement, voir en continu faudra voir)
+    -Pour les trébuchets on peut connaître son mode (en_mouvement ou immobile) grâce à son attribut mode (trebuchet.mode) et on peut changer ce mode avec la méthode initialiser_changer_mode
+      -la méthode initialiser_changer_mode ne prend pas d'entrée autre que lui même self donc on laisse vide à l'appel
+   [Moteur_graphique]
+     -entite.x et entite.y représentent les coordonnées du centre de l'unité
+     -entite.hitbox donne le rayon de collision
+     -pour lançer l'animation d'attaquer ou les anims facultatives de plier/déplier du trébuchet :
+     -vérifier self.cooldown_temps_mode>0 (trébuchet)
+     -vérifier self.cooldown_animation>0
+   [liste des attributs]
+          [Entité] :  commun à toutes les entités (certains atiributs ne seront pas réutilisés dans les sous_classes  )
+               [identification]
+                    #self.id = id : id unique pour chaque entité
+                    #self.type = "mot" :type de l'entité (castle ou legionnaire ou cavalerie (pour l'archer de cavalerie lourde) ou siege (pour le trebuchet) ou cataphractaire)
+                    #self.equipe="mot" : l'équipe appartient l'unité donc soit romains soit parthes
+                    #self.gen_type="mot": type global "Unités" ou "Buildings" (Buildings fait référence au gen_type de chateau)
+                [position]
+                    #self.x=float(x) :coordonnées centre de l'unité x
+                    #self.y=float(y) : coordonnées centre de l'unité y
+                [statistiques]
+                    [vie]
+                        #self.pv_max=int : permet d'initialiser la vie de l'unité et d'avoir une barre de vie
+                        #self.pv=float : nombre de pv restant de l'unité
+                        #self.vivant=booléen : statut de l'unité True si en vie False si mort
+                    [Armure]             
+                        #self.armor_melee=float : armure contre les attaques proches( de mélée)
+                        #self.armor_pierce=float : armure contre les attaques distantess (tranchantes:pierce)
+                        #self.bonus_armor={} : c'est surtout pour les faiblesses de l'unité , sert au calcul de degat bonus (ici seul chateau a une faiblesse contre les trebuchets)
+                    [Attaque]
+                        #self.attack_base=float : stat d'attaque
+                        #self.attack_type="melee"   : définit si l'attaque vise l'armure pierce ou melee
+                        #self.bonus_attacks={} : bonus qui s'applique sur l'armure du même nom dans bonus_armor (ici seul les trébuchets ont des dégats bonus contre le chateau)
+                        #self.portee=float : portée maximum de l'attaque
+                        #self.portee_min=float : attaque rendu possible seulement si l'unité cible est plus loin ou égal à la porté min (les balistes n'attaquent pas au corps à corps)
+                        #self.attaque_multiple=int  : nombres d'attaques en même temps (utile pour le chateau qui doit tirer 5 flèches donc 5*les dégats d'une flèche)   
+                    [durrée rechargement]            
+                        self.reload=float :rechargement avant attaque
+                        self.vitesse_animation=float : durrée animation_attaque
+                    [collision]          
+                        self.hitbox=0
+                [cooldown] 
+                    #self.cooldown_animation=float :temps de recharge restante avant nouvelle atatque
+                    #self.cooldown=float :temps restant de l'animation d'attaque
+                [cible]
+                    #self.cible_en_cours=None  :entité ciblé par l'ia
+           [Unité] : attributs additionnels spécifiques aux unités
+                [statistiques]
+                    #self.vitesse=float : vitesse de l'unité
+                    #self.chance={"Buildings":1,"Unités":1} : chance de toucher la cible selon si c'est une unité ou un bâtiment(le chateau)
+                [destination_orientation]
+                    #self.destx=float(x) :destination x de l'unité
+                    #self.desty=float(y) :destination y de l'unité
+                    #self.direction_x=0  :pour l'orientation des sprites suivant gauche/droite 1 droite -1 gauche 0 pas d'orientation suivant x
+                    #self.direction_y=0  :pour l'orientation des sprites suivant haut/bas 1 haut -1 bas 0 pas d'orientation suivant y
+           [trébuchet]
+                [mode]
+                    #self.mode="mot" : donne le mode actuel du trébuchet soit "immobile" correspond à l'état déplié ou mobile correspond à l'état plié
+                    #self.changer_mode=boolen : indique si trébuchet est actuellement en train de changer de mode
+                    #self.cooldown_temps_mode=float : temps restant avant de changer de mode
+                    #self.temps_mode=float : temps nécessaire pour changer de mode
+
+
+               
+           
+""" 
