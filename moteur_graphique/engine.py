@@ -1,7 +1,7 @@
 import pygame
 
-from window import *
-from math_help import *
+from moteur_graphique.window import *
+from moteur_graphique.math_help import *
 
 class Engine:
     def __init__(self, w : int, h : int, name : str) -> None:
