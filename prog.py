@@ -6,7 +6,7 @@ class Prog:
         self.width = 1280
         self.height = 720
 
-        self.engine = Engine(self.width, self.height, "hello")
+        self.engine = Engine(self.width, self.height, "test")
         self.clock = pygame.time.Clock()
 
     def init_prog(self) -> None:
