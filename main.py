@@ -1,14 +1,10 @@
-import pygame
-import math
-import sys
-from map_et_entités.Clock_systeme import Gestion_de_la_clock
-#from classes.map_systeme import
-#from fonctions.scenario_et_generateur import 
-#from fonctions.formation import 
-#from fonctions.partie_graphique import
-#from IA.partie_ia import
-if __name__ == "__main__":
-    print("hello world")
-    print("hello Nicolas")
-    print("hello Anas")
-    print("hello Jérôme")
+from prog import Prog
+
+def main() -> None:
+    prog = Prog()
+    prog.init_prog()
+    prog.run()
+    prog.quit_prog()
+
+if __name__ == '__main__':
+    main()
