@@ -7,6 +7,7 @@ from base_systeme.entite_systeme import Cataphractaire_Elite, Château
 liste_units = []
 
 # scénario par défaut (le seul scénario pour le moment), /!\ comment intégrer proprement un choix de scénario ?
+# Différents scénarios mais aussi choix de position pour chaque scénario ???
 def charger_scenario(liste):
     liste.clear()
     liste.extend([
@@ -19,7 +20,7 @@ def charger_scenario(liste):
 * Demander aux généraux de produire des ordres (appel à des fonctions de la classe IA ???)
 
 * Récupérer les ordres des généraux IA
-    liste de tuples : (id, nouvelle_position) ??? (avec nouvelle_position=(x, y)
+    liste de tuples : (id, nouvelle_position) ??? (avec nouvelle_position=(x, y) )
 
 * Appliquer les ordres
     Mise à jour de liste_units en utilisant les fonctions de la classe unité.
