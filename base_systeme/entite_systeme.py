@@ -1,35 +1,36 @@
 import math
-from base_systeme.map_systeme import map
 import random
+from base_systeme.map_systeme import map
+from base_systeme.donnees_entites import *
 class Entité:
-    def __init__(self, id,x,y,pv_max,equipe):
+    def __init__(self, id,x:float,y:float,pv_max,equipe:str):
         self.id = id
-        self.type = "none"
-        self.equipe=equipe
-        self.x=float(x)
-        self.y=float(y)
-        self.pv_max=pv_max #utile si on veut savoir quel est le pourcentage de la santé de l'unité
-        self.pv=pv_max
-        self.vivant=True
-        self.armor_melee=0
-        self.armor_pierce=0
-        self.bonus_armor={} # c'est surtout pour les faiblesses de l'unité , sert au calcul de degat bonus
-        self.attack_base=0
-        self.attack_type="melee"  
+        self.type:str = "none"
+        self.equipe:str=equipe
+        self.x:float=x
+        self.y:float=y
+        self.pv_max:float=pv_max#utile si on veut savoir quel est le pourcentage de la santé de l'unité
+        self.pv:float=pv_max
+        self.vivant:bool=True
+        self.armor_melee:float=0
+        self.armor_pierce:float=0
+        self.bonus_armor:dict[str,float]={} # c'est surtout pour les faiblesses de l'unité , sert au calcul de degat bonus
+        self.attack_base:float=0
+        self.attack_type:str="melee"  
         self.bonus_attacks={}
-        self.portee=0
-        self.portee_min=0
-        self.cooldown=0
-        self.reload=0 #rechargement avant attaque
-        self.hitbox=0
-        self.vitesse_animation=0
-        self.cooldown_animation=0
-        self.cible_en_cours=None  #entité ciblé par l'ia
-        self.attaque_multiple=1
-        self.gen_type="Buildings"
-    def distance_avec(self,cible):
+        self.portee:float=0
+        self.portee_min:float=0
+        self.cooldown:float=0
+        self.reload:float=0 #rechargement avant attaque
+        self.hitbox:float=0
+        self.vitesse_animation:float=0
+        self.cooldown_animation:float=0
+        self.cible_en_cours:Entité=None  #entité ciblé par l'ia
+        self.attaque_multiple:int=1
+        self.gen_type:str="Buildings"
+    def distance_avec(self,cible:Entité):
         return math.hypot(self.x-cible.x,self.y-cible.y)
-    def peut_attaquer(self, cible):
+    def peut_attaquer(self, cible:Entité):
          if self.vivant:
           if self.cooldown_animation>0:
              return False
@@ -42,7 +43,7 @@ class Entité:
           trop_proche= distance < self.portee_min
           trop_loin=distance > portee_max
           return not trop_proche and not trop_loin
-    def attaquer(self,cible):  
+    def attaquer(self,cible:Entité):  
             if cible.vivant and self.vivant:    
              if self.attack_type=="melee":
                 if not cible.armor_melee=="immortal":
@@ -61,7 +62,7 @@ class Entité:
              cible.recevoir_dégats(dégats_totaux)
             else:
                 return False
-    def lancement_animation(self,cible)   :
+    def lancement_animation(self,cible:Entité)   :
         if self.peut_attaquer(cible):
             self.cooldown_animation=self.vitesse_animation
             self.cooldown=self.reload
@@ -86,16 +87,16 @@ class Entité:
                             self.attaquer(self.cible_en_cours,autres_entites)
                             self.cible_en_cours=None
 class Unité(Entité):
-    def __init__(self, id,x,y,pv_max,equipe):
+    def __init__(self, id,x:float,y:float,pv_max:float,equipe:str):
         super().__init__(id,x,y,pv_max,equipe)
-        self.vitesse=float(0)
-        self.destx=float(x) #pour savoir où l'unité doit aller
-        self.desty=float(y)
-        self.direction_x=0  #pour l'orientation des sprites 
-        self.direction_y=0
-        self.gen_type="Unités"
-        self.chance={"Buildings":1,"Unités":1}
-    def vérifier_limites_OK(self,carte):
+        self.vitesse:float=float(0)
+        self.destx:float=float(x) #pour savoir où l'unité doit aller
+        self.desty:float=float(y)
+        self.direction_x:float=0  #pour l'orientation des sprites 
+        self.direction_y:float=0
+        self.gen_type:str="Unités"
+        self.chance:dict[str,float]={"Buildings":1,"Unités":1}
+    def vérifier_limites_OK(self,carte:map):
         if carte.est_dans_la_carte(self.x,self.y,self.hitbox):
             return True
         else:
@@ -103,7 +104,7 @@ class Unité(Entité):
     def definir_destination(self,x:float,y:float):
         self.destx=x
         self.desty=y
-    def avancer(self,temps:float,autres_entites:list,carte):
+    def avancer(self,temps:float,autres_entites:list,carte:map):
         if self.vivant and self.vitesse>0 and self.cooldown_animation==0:
             distance=math.hypot(self.destx-self.x,self.desty-self.y)                  
             if distance>=0.05:
@@ -138,7 +139,7 @@ class Unité(Entité):
                 else:
                  self.x,self.y=carte.anti_hors_limite(futurx,futury,self.hitbox)
         return 0
-    def attaquer(self,cible):
+    def attaquer(self,cible:Entité):
      if cible.vivant and self.vivant:    
              if self.attack_type=="melee":
                  armure=cible.armor_melee
@@ -161,32 +162,34 @@ class Unité(Entité):
      else:
                 return False       
 class Château(Entité):
-    def __init__(self, id,x,y,equipe):
-        super().__init__(id,x,y,10000,equipe)
-        self.type="castle"
-        self.hitbox=2
-        self.armor_melee="immortal"
-        self.armor_pierce=13
-        self.attaque_multiple=5 #c'est 5 fleches par attaque
+    def __init__(self, id,x:float,y:float,equipe:str):
+        super().__init__(id,x,y,PV_MAX[TYPE[0]],equipe)
+        self.type=TYPE[0]
+        self.armor_melee=STAT_ARMURE_PROXIMITE[TYPE[0]]
+        self.armor_pierce=STAT_ARMURE_DISTANCE["chateau"]
         self.bonus_armor={"Castle":0}
-        self.attack_base=15
-        self.attack_type="pierce"
-        self.portee=11
-        self.portee_min=0
-        self.reload=2
-        self.vitesse_animation=2 # les fleches seront envoyés en continue après les 2 premieres seconde
+        self.attaque_multiple=ATTAQUE_MULTIPLE[TYPE[0]] #c'est 5 fleches par attaque
+        self.attack_base=STAT_ATTAQUE[TYPE[0]]
+        self.attack_type=TYPE_ATTAQUE[TYPE[0]]
+        self.portee_min=STAT_PORTEE_MIN[TYPE[0]]
+        self.portee=STAT_PORTEE_MAX[TYPE[0]]
+        self.reload=TEMPS_RECHARGEMENT_AVANT_ATTAQUE[TYPE[0]]
+        self.vitesse_animation=DUREE_ANIMATION_ATTAQUE[TYPE[0]] # les fleches seront envoyés en continue après les 2 premieres seconde
+        self.hitbox=HITBOX[TYPE[0]]
 class Legionnaire(Unité):
-   def __init__(self, id,x,y,equipe):
-           super().__init__(id,x,y,75,equipe)
-           self.type="legionnaire"
-           self.vitesse=1.06
-           self.hitbox=0.2
-           self.armor_melee=6
-           self.armor_pierce=6
-           self.attack_base=16
-           self.vitesse_animation=1.26
-           self.attack_type="melee"
-           self.reload=2
+   def __init__(self, id,x:float,y:float,equipe:str):
+           super().__init__(id,x,y,PV_MAX[TYPE[1]],equipe)
+           self.type=TYPE[1]
+           self.armor_melee=STAT_ARMURE_PROXIMITE[TYPE[1]]
+           self.armor_pierce=STAT_ARMURE_DISTANCE[TYPE[1]]
+           self.attack_base=STAT_ATTAQUE[TYPE[1]]
+           self.attack_type=TYPE_ATTAQUE[TYPE[1]]
+           self.portee_min=STAT_PORTEE_MIN[TYPE[1]]
+           self.portee=STAT_PORTEE_MAX[TYPE[1]]
+           self.vitesse=STAT_VITESSE[TYPE[1]]
+           self.reload=TEMPS_RECHARGEMENT_AVANT_ATTAQUE[TYPE[1]]
+           self.vitesse_animation=DUREE_ANIMATION_ATTAQUE[TYPE[1]]
+           self.hitbox=HITBOX[TYPE[1]]
    def verifier_shield_wall(self,autres_entités:list):
        compteur=0
        for element in autres_entités:
@@ -203,25 +206,25 @@ class Legionnaire(Unité):
      else:
         self.armor_pierce=6     
 class Trébuchet(Unité):
-    def __init__(self, id, x, y, equipe):
-             super().__init__(id, x, y, 150,equipe)
-             self.type="siege"
-             self.hitbox=0.5
-             self.vitesse=0
-             self.armor_melee=2
-             self.armor_pierce=8
-             self.attack_base=200
-             self.attack_type="pierce"
-             self.bonus_attacks={"Castle": 250}
-             self.portee=16
-             self.portee_min=4
-             self.reload=10
-             self.temps_mode=11.00
-             self.cooldown_temps_mode=0
-             self.vitesse_animation=1.00
-             self.mode="immobile"
-             self.changer_mode=False
-             self.chance={"Buildings":0.8,"Unités":0.15}
+    def __init__(self, id, x:float, y:float, equipe:str):
+           super().__init__(id, x, y,PV_MAX[TYPE[2]],equipe)
+           self.type:str=TYPE[2]
+           self.armor_melee:float=STAT_ARMURE_PROXIMITE[TYPE[2]]
+           self.armor_pierce:float=STAT_ARMURE_DISTANCE[TYPE[2]]
+           self.attack_base:float=STAT_ATTAQUE[TYPE[2]]
+           self.attack_type:str=TYPE_ATTAQUE[TYPE[2]]
+           self.portee_min:float=STAT_PORTEE_MIN[TYPE[2]]
+           self.portee:float=STAT_PORTEE_MAX[TYPE[2]]
+           self.vitesse:float=STAT_VITESSE[TYPE[2]]
+           self.reload:float=TEMPS_RECHARGEMENT_AVANT_ATTAQUE[TYPE[2]]
+           self.vitesse_animation:float=DUREE_ANIMATION_ATTAQUE[TYPE[2]]
+           self.bonus_attacks:dict[str,float]={"Castle": 250}
+           self.temps_mode:float=DUREE_CHANGEMENT_MODE[TYPE[2]]
+           self.cooldown_temps_mode:float=0
+           self.mode:str="immobile"
+           self.changer_mode:bool=False
+           self.chance:dict[str,float]={"Buildings":0.8,"Unités":0.15}
+           self.hitbox=HITBOX[TYPE[2]]
     def immobile(self):
        self.mode="immobile"
        self.chance={"Buildings":0.8,"Unités":0.15}
@@ -257,30 +260,33 @@ class Trébuchet(Unité):
  #             
 class Archer_Cavalerie_Loude(Unité):
    def __init__(self, id, x, y, equipe):
-                  super().__init__(id, x, y, 80, equipe)
-                  self.type="cavalerie"
-                  self.hitbox=0.25
-                  self.vitesse=1.44
-                  self.armor_melee=5
-                  self.armor_pierce=6
-                  self.attack_base=12
-                  self.attack_type="pierce"
-                  self.portee=8
-                  self.reload=1.8
-                  self.vitesse_animation=1.17
-                  self.chance={"Buildings":1,"Unités":1}           
+                  super().__init__(id, x, y,PV_MAX[TYPE[3]],equipe)
+                  self.type:str=TYPE[3]
+                  self.armor_melee:float=STAT_ARMURE_PROXIMITE[TYPE[3]]
+                  self.armor_pierce:float=STAT_ARMURE_DISTANCE[TYPE[3]]
+                  self.attack_base:float=STAT_ATTAQUE[TYPE[3]]
+                  self.attack_type:str=TYPE_ATTAQUE[TYPE[3]]
+                  self.portee_min:float=STAT_PORTEE_MIN[TYPE[3]]
+                  self.portee:float=STAT_PORTEE_MAX[TYPE[3]]
+                  self.vitesse:float=STAT_VITESSE[TYPE[3]]
+                  self.reload:float=TEMPS_RECHARGEMENT_AVANT_ATTAQUE[TYPE[3]]
+                  self.vitesse_animation:float=DUREE_ANIMATION_ATTAQUE[TYPE[3]]
+                  self.hitbox=HITBOX[TYPE[3]]
+                           
 class Cataphractaire_Elite(Unité):
     def __init__(self, id, x, y, equipe):
-                      super().__init__(id, x, y, 150,equipe)
-                      self.type="cataphractaire"
-                      self.hitbox=0.25
-                      self.vitesse=1.35
-                      self.armor_melee=5
-                      self.armor_pierce=5
-                      self.attack_base=14
-                      self.attack_type="melee"
-                      self.reload=1.7
-                      self.vitesse_animation=1.36
+                      super().__init__(id, x, y,PV_MAX[TYPE[4]],equipe)
+                      self.type:str=TYPE[4]
+                      self.armor_melee:float=STAT_ARMURE_PROXIMITE[TYPE[4]]
+                      self.armor_pierce:float=STAT_ARMURE_DISTANCE[TYPE[4]]
+                      self.attack_base:float=STAT_ATTAQUE[TYPE[4]]
+                      self.attack_type:str=TYPE_ATTAQUE[TYPE[4]]
+                      self.portee_min:float=STAT_PORTEE_MIN[TYPE[4]]
+                      self.portee:float=STAT_PORTEE_MAX[TYPE[4]]
+                      self.vitesse:float=STAT_VITESSE[TYPE[4]]
+                      self.reload:float=TEMPS_RECHARGEMENT_AVANT_ATTAQUE[TYPE[4]]
+                      self.vitesse_animation:float=DUREE_ANIMATION_ATTAQUE[TYPE[4]]
+                      self.hitbox=HITBOX[TYPE[4]]      
     def attaquer(self,cible,autres_entités:list): #j'enleve la gestion de la chance c'est inutile pour le cataphractaire
      if cible.vivant and self.vivant:    
              if self.attack_type=="melee":
