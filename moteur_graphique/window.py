@@ -2,7 +2,7 @@ import pygame
 from typing import Optional
 
 class Window:
-    def __init__(self, w :int, h :int, title :str) -> None:
+    def __init__(self, w: int, h: int, title: str) -> None:
         self.w: int = w
         self.h: int = h
         self.title: str = title
