@@ -1,5 +1,6 @@
 import math
 import random
+from __future__ import annotations
 from base_systeme.map_systeme import map
 from base_systeme.donnees_entites import *
 class Entité:
