@@ -2,6 +2,24 @@
 moteur du jeu"""
 
 """définition de la classe simulation ( simulation d'une partie)"""
+
+''' --- A la cadence de la clock --- :
+* Demander aux généraux de produire des ordres (appel à des fonctions de la classe IA ???)
+
+* Récupérer les ordres des généraux IA
+    liste de tuples : (id, nouvelle_position) ??? (avec nouvelle_position=(x, y) )
+
+* Appliquer les ordres
+    Mise à jour de liste_units en utilisant les fonctions de la classe unité.
+    Les units attaquent automatiquement les ennemis à portée ???
+    Gestion des dégats
+    Gestion des buffs de formations
+    -> Comment calculer les buffs, cerlce autour de chaque unité ?
+
+* Gestion des bataillons/formations
+
+ --- --- '''
+
 import math
 import base_systeme.entite_systeme 
 
