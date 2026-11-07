@@ -24,8 +24,11 @@ ATTAQUER = "attaquer"
 ARRETER = "arreter"
 CHANGER_MODE = "changer_mode"
 
-# Noms de types du moteur (liste TYPE de base_systeme/donnees_entites.py)
+CHATEAU = "chateau"
+LEGIONNAIRE = "legionnaire"
 TREBUCHET = "Trébuchet"
+ARCHER = "Archer_Cavalerie_Lourde"
+CATAPHRACTAIRE = "cataphractaire"
 
 
 def portee_utile(unite, cible) -> float:
@@ -38,10 +41,10 @@ def appliquer_ordres(ordres: list, entites: list) -> None:
     par_id = {e.id: e for e in entites if e.vivant}
     for ordre in ordres:
         unite = par_id.get(ordre[1])
-        if unite is None:                       # morte entre-temps
+        if unite is None:                       
             continue
         genre = ordre[0]
-        mobile = hasattr(unite, "definir_destination")   # le château ne bouge pas
+        mobile = hasattr(unite, "definir_destination")   
 
         if genre == DEPLACER and mobile:
             unite.definir_destination(ordre[2], ordre[3])
@@ -71,8 +74,8 @@ class General:
     nom = "General"
 
     def __init__(self, equipe: str):
-        self.equipe = equipe        # même valeur que l'attribut equipe des entités
-        self.journal = []           # [(temps, nom, decision, raison)] : exigé par le sujet
+        self.equipe = equipe        
+        self.journal = []           
 
     def mes_unites(self, entites: list) -> list:
         return [e for e in entites if e.vivant and e.equipe == self.equipe]
@@ -84,6 +87,42 @@ class General:
     def plus_proche(unite, autres: list):
         """L'entité de autres la plus proche de unite, ou None si autres est vide."""
         return min(autres, key=unite.distance_avec, default=None)
+
+    # ---------- lire le champ de bataille ----------
+
+    @staticmethod
+    def du_type(unites: list, type_unite: str) -> list:
+        return [u for u in unites if u.type == type_unite]
+
+    @staticmethod
+    def centre(unites: list):
+        """Barycentre (x, y) d'un groupe d'unités, ou None si le groupe est vide."""
+        if not unites:
+            return None
+        return (sum(u.x for u in unites) / len(unites),
+                sum(u.y for u in unites) / len(unites))
+
+    def menaces_pres_de(self, entites: list, x: float, y: float, rayon: float,
+                        type_unite: str = None) -> list:
+        """Ennemis (d'un type donné, ou tous) à moins de rayon du point (x, y).
+        Exemple : les cataphractaires qui approchent des trébuchets."""
+        return [e for e in self.ennemis(entites)
+                if (type_unite is None or e.type == type_unite)
+                and math.hypot(e.x - x, e.y - y) <= rayon]
+
+    def sous_le_feu(self, entites: list, marge: float = 1.0) -> list:
+        """Mes unités à portée d'un tireur ennemi (archer, château, trébuchet).
+        La marge permet d'anticiper avant le premier tir."""
+        tireurs = [e for e in self.ennemis(entites) if e.portee > 0]
+        return [u for u in self.mes_unites(entites)
+                if any(u.distance_avec(t) <= t.portee + marge for t in tireurs)]
+
+    @property
+    def decision_courante(self) -> str:
+        """Dernière décision prise, à afficher à l'écran (le sujet évalue la lisibilité)."""
+        return self.journal[-1][2] if self.journal else "aucune"
+
+    # ---------- Journal ----------
 
     def noter(self, temps: float, decision: str, raison: str) -> None:
         """Ajoute une décision au journal, seulement si elle a changé (évite les doublons)."""
@@ -144,7 +183,7 @@ class Bedlam(General):
     @staticmethod
     def _ordres_trebuchet(treb, cible) -> list:
         """Un trébuchet doit être déployé pour tirer et replié pour bouger."""
-        if treb.changer_mode:                   # (dé)pliage en cours : on attend
+        if treb.changer_mode:                   
             return []
         distance = treb.distance_avec(cible)
         a_portee = treb.portee_min <= distance <= treb.portee
@@ -159,7 +198,7 @@ class Bedlam(General):
             return [(CHANGER_MODE, treb.id)]
         if distance > treb.portee:              # trop loin : on avance
             return [(DEPLACER, treb.id, cible.x, cible.y)]
-        # trop près (portée minimale) : on recule dans l'axe opposé à la cible
+        # trop près : on recule dans l'axe opposé à la cible
         dx, dy = treb.x - cible.x, treb.y - cible.y
         n = math.hypot(dx, dy) or 1.0
         recul = treb.portee_min + 1.0
