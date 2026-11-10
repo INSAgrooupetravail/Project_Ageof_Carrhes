@@ -3,7 +3,7 @@ import math
 import random
 from base_systeme.map_systeme import map
 from base_systeme.donnees_entites import *
-class Entité:
+class Entite:
     def __init__(self, id,x:float,y:float,type:str,equipe:str):
         self.id = id
         self.type:str = type
@@ -11,7 +11,7 @@ class Entité:
         self.x:float=x
         self.y:float=y
         self.vivant:bool=True
-        self.pv_max:float=PV_MAX[type]#utile si on veut savoir quel est le pourcentage de la santé de l'unité
+        self.pv_max:float=PV_MAX[type]#utile si on veut savoir quel est le pourcentage de la santé de l'Unite
         self.pv:float=PV_MAX[type]
         self.armor_melee:float=STAT_ARMURE_PROXIMITE[type]
         self.armor_pierce:float=STAT_ARMURE_DISTANCE[type]
@@ -23,15 +23,15 @@ class Entité:
         self.vitesse_animation:float=DUREE_ANIMATION_ATTAQUE[type]
         self.hitbox:float=HITBOX[type]
         self.attaque_multiple:int=ATTAQUE_MULTIPLE.get(type,1)
-        self.bonus_armor:dict[str,float]={} # c'est surtout pour les faiblesses de l'unité , sert au calcul de degat bonus 
+        self.bonus_armor:dict[str,float]={} # c'est surtout pour les faiblesses de l'Unite , sert au calcul de degat bonus 
         self.bonus_attacks:dict[str,float]={}
         self.cooldown:float=0
         self.cooldown_animation:float=0
-        self.cible_en_cours:Entité=None  #entité ciblé par l'ia
+        self.cible_en_cours:Entite=None  #Entite ciblé par l'ia
         self.gen_type:str="Buildings"
-    def distance_avec(self,cible:Entité):
+    def distance_avec(self,cible:Entite):
         return math.hypot(self.x-cible.x,self.y-cible.y)
-    def peut_attaquer(self, cible:Entité):
+    def peut_attaquer(self, cible:Entite):
          if self.vivant:
           if self.cooldown_animation>0:
              return False
@@ -44,7 +44,7 @@ class Entité:
           trop_proche= distance < self.portee_min
           trop_loin=distance > portee_max
           return not trop_proche and not trop_loin
-    def attaquer(self,cible:Entité):  
+    def attaquer(self,cible:Entite):  
             if cible.vivant and self.vivant:    
              if self.attack_type=="melee":
                 if not cible.armor_melee=="immortal":
@@ -53,17 +53,17 @@ class Entité:
                    return False
              elif self.attack_type=="pierce":
                 armure=cible.armor_pierce
-             dégats_initiaux=(self.attack_base - armure)
-             dégats_bonus=0
+             degats_initiaux=(self.attack_base - armure)
+             degats_bonus=0
              for type, bonus_value in self.bonus_attacks.items():
                 if type in cible.bonus_armor:
-                    dégats_bonus = dégats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
-             dégats_par_couts=max(1,(dégats_initiaux+dégats_bonus))
-             dégats_totaux=(self.attaque_multiple*dégats_par_couts)
-             cible.recevoir_dégats(dégats_totaux)
+                    degats_bonus = degats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
+             degats_par_coup=max(1,(degats_initiaux+degats_bonus))
+             degats_totaux=(self.attaque_multiple*degats_par_coup)
+             cible.recevoir_dégats(degats_totaux)
             else:
                 return False
-    def lancement_animation(self,cible:Entité)   :
+    def lancement_animation(self,cible:Entite)   :
         if self.peut_attaquer(cible):
             self.cooldown_animation=self.vitesse_animation
             self.cooldown=self.reload
@@ -87,17 +87,17 @@ class Entité:
                         else:
                             self.attaquer(self.cible_en_cours,autres_entites)
                             self.cible_en_cours=None
-class Unité(Entité):
+class Unite(Entite):
     def __init__(self, id,x:float,y:float,type:str,equipe:str):
         super().__init__(id,x,y,type,equipe)
         self.vitesse:float=STAT_VITESSE[type]
-        self.destx:float=float(x) #pour savoir où l'unité doit aller
+        self.destx:float=float(x) #pour savoir où l'Unite doit aller
         self.desty:float=float(y)
         self.direction_x:float=0  #pour l'orientation des sprites 
         self.direction_y:float=0
-        self.gen_type:str="Unités"
-        self.chance:dict[str,float]={"Buildings":1,"Unités":1}
-    def vérifier_limites_OK(self,carte:map):
+        self.gen_type:str="Unites"
+        self.chance:dict[str,float]={"Buildings":1,"Unites":1}
+    def verifier_limites_OK(self,carte:map):
         if carte.est_dans_la_carte(self.x,self.y,self.hitbox):
             return True
         else:
@@ -127,12 +127,12 @@ class Unité(Entité):
                 else:
                  self.direction_y=0
                 if carte.est_dans_la_carte(futurx,futury,self.hitbox):
-                 for autre_entité in autres_entites:
-                    if autre_entité is self or not autre_entité.vivant:
+                 for autre_Entite in autres_entites:
+                    if autre_Entite is self or not autre_Entite.vivant:
                         continue
-                    distance_future=math.hypot(futurx-autre_entité.x,futury-autre_entité.y)
-                    rayon_min=self.hitbox+autre_entité.hitbox
-                    if distance_future<rayon_min:  #test de collision puisque les unités ne peuvent pas se chevaucher
+                    distance_future=math.hypot(futurx-autre_Entite.x,futury-autre_Entite.y)
+                    rayon_min=self.hitbox+autre_Entite.hitbox
+                    if distance_future<rayon_min:  #test de collision puisque les Unites ne peuvent pas se chevaucher
                         return 0
                         #aucun changement de position
                  self.x=futurx
@@ -140,7 +140,7 @@ class Unité(Entité):
                 else:
                  self.x,self.y=carte.anti_hors_limite(futurx,futury,self.hitbox)
         return 0
-    def attaquer(self,cible:Entité):
+    def attaquer(self,cible:Entite):
      if cible.vivant and self.vivant:    
              if self.attack_type=="melee":
                  if not cible.armor_melee=="immortal":
@@ -149,33 +149,33 @@ class Unité(Entité):
                   return False
              elif self.attack_type=="pierce":
                 armure=cible.armor_pierce
-             dégats_initiaux=(self.attack_base - armure)
-             dégats_bonus=0
+             degats_initiaux=(self.attack_base - armure)
+             degats_bonus=0
              for type, bonus_value in self.bonus_attacks.items():
                 if type in cible.bonus_armor:
-                    dégats_bonus = dégats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
+                    degats_bonus = degats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
              
              #je rajoute la gestion de la chance ici et j'enlève les attaques multiples et autres qui concernaient que le chateau
              for type, proba in self.chance.items():
               if type==cible.gen_type:
                if random.random()<=proba: #entre 0 et 1 donc si  infétrieur à 0.8 on  est bien à 80% de chance d'avoir - ou égal à 0.8
-                dégats_totaux=max(1,(dégats_initiaux+dégats_bonus))
-                cible.recevoir_dégats(dégats_totaux)
+                degats_totaux=max(1,(degats_initiaux+degats_bonus))
+                cible.recevoir_dégats(degats_totaux)
                else:
                 return False
      else:
                 return False       
-class Château(Entité):
+class Chateau(Entite):
     def __init__(self, id,x:float,y:float,equipe:str):
         super().__init__(id,x,y,TYPE[0],equipe)
         self.bonus_armor={"Castle":0}
-        #c'est 5 fleches par attaque pour le chateau donc 5* les degats, l'attribut est géré dans entité maintenant
-class Legionnaire(Unité):
+        #c'est 5 fleches par attaque pour le chateau donc 5* les degats, l'attribut est géré dans Entite maintenant
+class Legionnaire(Unite):
    def __init__(self, id,x:float,y:float,equipe:str):
            super().__init__(id,x,y,TYPE[1],equipe)
-   def verifier_shield_wall(self,autres_entités:list):
+   def verifier_shield_wall(self,autres_Entites:list):
        compteur=0
-       for element in autres_entités:
+       for element in autres_Entites:
          if element is not self and element.vivant and element.type==self.type and element.equipe==self.equipe:
             if self.distance_avec(element)<=0.42:
              compteur=compteur+1
@@ -183,12 +183,12 @@ class Legionnaire(Unité):
           return True
        else:
           return False
-   def activer_shield_wall(self,autres_entités:list):
-     if self.verifier_shield_wall(autres_entités):
+   def activer_shield_wall(self,autres_Entites:list):
+     if self.verifier_shield_wall(autres_Entites):
        self.armor_pierce=12
      else:
         self.armor_pierce=6     
-class Trébuchet(Unité):
+class Trebuchet(Unite):
     def __init__(self, id, x:float, y:float, equipe:str):
            super().__init__(id, x, y,TYPE[2],equipe)
            self.bonus_attacks:dict[str,float]={"Castle": 250}
@@ -196,14 +196,14 @@ class Trébuchet(Unité):
            self.cooldown_temps_mode:float=0
            self.mode:str="immobile"
            self.changer_mode:bool=False
-           self.chance:dict[str,float]={"Buildings":0.8,"Unités":0.15}
+           self.chance:dict[str,float]={"Buildings":0.8,"Unites":0.15}
     def immobile(self):
        self.mode="immobile"
-       self.chance={"Buildings":0.8,"Unités":0.15}
+       self.chance={"Buildings":0.8,"Unites":0.15}
        self.vitesse=0
     def en_mouvement(self):
        self.mode="en-mouvement"
-       self.chance={"Buildings":0,"Unités":0}
+       self.chance={"Buildings":0,"Unites":0}
        self.vitesse=0.8
     def peut_attaquer(self,cible):
        if self.vivant and self.mode=="immobile"and self.changer_mode==False:
@@ -227,16 +227,13 @@ class Trébuchet(Unité):
                     if self.cooldown_temps_mode<=0:
                        if self.changer_mode==True:
                           self.choisir_changer_mode()
-    
-
- #             
-class Archer_Cavalerie_Lourde(Unité):
+class Archer_Cavalerie_Lourde(Unite):
    def __init__(self, id, x:float, y:float, equipe:str):
                   super().__init__(id, x, y,TYPE[3],equipe)           
-class Cataphractaire_Elite(Unité):
+class Cataphractaire_Elite(Unite):
     def __init__(self, id, x:float, y:float,equipe:str):
                       super().__init__(id, x, y,TYPE[4],equipe)
-    def attaquer(self,cible,autres_entités:list): #j'enleve la gestion de la chance c'est inutile pour le cataphractaire
+    def attaquer(self,cible,autres_Entites:list): #j'enleve la gestion de la chance c'est inutile pour le cataphractaire
      if cible.vivant and self.vivant:    
              if self.attack_type=="melee":
                  if not cible.armor_melee=="immortal":
@@ -245,14 +242,14 @@ class Cataphractaire_Elite(Unité):
                     return False
              elif self.attack_type=="pierce":
                 armure=cible.armor_pierce
-             dégats_initiaux=(self.attack_base - armure)
-             dégats_bonus=0
+             degats_initiaux=(self.attack_base - armure)
+             degats_bonus=0
              for type, bonus_value in self.bonus_attacks.items():
                 if type in cible.bonus_armor:
-                    dégats_bonus = dégats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
-             dégats_totaux=max(1,(dégats_initiaux+dégats_bonus))
-             cible.recevoir_dégats(dégats_totaux)
-             for element in autres_entités:
+                    degats_bonus = degats_bonus+max(0,bonus_value - cible.bonus_armor[type]) 
+             degats_totaux=max(1,(degats_initiaux+degats_bonus))
+             cible.recevoir_dégats(degats_totaux)
+             for element in autres_Entites:
                   if element is not self and element.vivant and element.gen_type==self.gen_type and element.equipe!=self.equipe and element is not cible:
                    if self.distance_avec(element)<=0.75:
                        cible2=element
@@ -260,13 +257,13 @@ class Cataphractaire_Elite(Unité):
                          armure=cible2.armor_melee
                        elif self.attack_type=="pierce":
                            armure=cible2.armor_pierce
-                       dégats_initiaux=(self.attack_base - armure)
-                       dégats_bonus=0
+                       degats_initiaux=(self.attack_base - armure)
+                       degats_bonus=0
                        for type, bonus_value in self.bonus_attacks.items():
                             if type in cible2.bonus_armor:
-                                dégats_bonus = dégats_bonus+max(0,bonus_value - cible2.bonus_armor[type]) 
-                       dégats_totaux=max(1,(dégats_initiaux+dégats_bonus))
-                       cible2.recevoir_dégats(dégats_totaux)
+                                degats_bonus = degats_bonus+max(0,bonus_value - cible2.bonus_armor[type]) 
+                       degats_totaux=max(1,(degats_initiaux+degats_bonus))
+                       cible2.recevoir_dégats(degats_totaux)
      else:
                 return False
 """ 
@@ -274,57 +271,57 @@ class Cataphractaire_Elite(Unité):
   [main/système global]
     -Il faut appeller actualiser_animation_time , actualiser_cooldown , actualiser_mode et avancer à chaque tick
       -actualiser_mode et actualiser_cooldown prend en entrée le temps (dt) (envoyé par la clock)
-      -actualiser_animation_time prend en entrée le temps (dt) et la liste des entités de la map
-      -avancer prend en entrée le temps (dt) , la liste des entités de la map et la map elle même
-    -Il faut mettre à jour la liste des entités de map au fur et à mesure du jeu
-      -suppression des entités mortes
+      -actualiser_animation_time prend en entrée le temps (dt) et la liste des Entites de la map
+      -avancer prend en entrée le temps (dt) , la liste des Entites de la map et la map elle même
+    -Il faut mettre à jour la liste des Entites de map au fur et à mesure du jeu
+      -suppression des Entites mortes
 
   [IA/formation/autre]
-    -chaque entité possède un id unique
-    -chaque entité possède un type qui permet de savoir si c'est le chateau ,  le legionnaire...
-    -pas de modification de x et y (les attributs x et y  sont initialisés à la génération mais sont ensuite gérés en interne dans la sous-classe unité)
+    -chaque Entite possède un id unique
+    -chaque Entite possède un type qui permet de savoir si c'est le chateau ,  le legionnaire...
+    -pas de modification de x et y (les attributs x et y  sont initialisés à la génération mais sont ensuite gérés en interne dans la sous-classe Unite)
     -pour se déplacer on utilise definir_destination
       -definir_destination prend en entrée  x et y représentant ici les coordonnées ciblées
     -pour attaquer on appelle peut_attaquer qui vérifier qu'on a le droit d'attaquer les cibles (ex: ennemis,vivant à portée temps de rechargement écoulé)
-      -peut_attaquer prend en entrée cible (la cible chosi doit etre une autre entité) et renvoie True ou False
-    -Si peut_attaquer est True alors l'ia utilise lancement_animation qui ordonne à l'unité d'attaquer la cible
-      -lancement_animation prend en entrée la cible (la cible chosi doit etre une autre entité)
+      -peut_attaquer prend en entrée cible (la cible chosi doit etre une autre Entite) et renvoie True ou False
+    -Si peut_attaquer est True alors l'ia utilise lancement_animation qui ordonne à l'Unite d'attaquer la cible
+      -lancement_animation prend en entrée la cible (la cible chosi doit etre une autre Entite)
     -Pour les légionnaires la méthode activer_shield_wall doit être appellé dans formation quand ce genre de formation est actif , la méthode verifier_shield_wall permet de vérifier que l'activation est bien possible et peut servir pour tester si formation fonctionne comme prévu
-      -verifier_shiels_wall prend en entrée la liste des entités sur la map (il n'est pas nécessaire de l'appeller selon moi)
-      -activer_shield_wall prend en entrée la liste des entités sur la map (nécessité de l'appeller régulièrement, voir en continu faudra voir)
-    -Pour les trébuchets on peut connaître son mode (en_mouvement ou immobile) grâce à son attribut mode (trebuchet.mode) et on peut changer ce mode avec la méthode initialiser_changer_mode
+      -verifier_shiels_wall prend en entrée la liste des Entites sur la map (il n'est pas nécessaire de l'appeller selon moi)
+      -activer_shield_wall prend en entrée la liste des Entites sur la map (nécessité de l'appeller régulièrement, voir en continu faudra voir)
+    -Pour les Trebuchets on peut connaître son mode (en_mouvement ou immobile) grâce à son attribut mode (trebuchet.mode) et on peut changer ce mode avec la méthode initialiser_changer_mode
       -la méthode initialiser_changer_mode ne prend pas d'entrée autre que lui même self donc on laisse vide à l'appel
    [Moteur_graphique]
-     -entite.x et entite.y représentent les coordonnées du centre de l'unité
+     -entite.x et entite.y représentent les coordonnées du centre de l'Unite
      -entite.hitbox donne le rayon de collision
-     -pour lançer l'animation d'attaquer ou les anims facultatives de plier/déplier du trébuchet :
-     -vérifier self.cooldown_temps_mode>0 (trébuchet)
+     -pour lançer l'animation d'attaquer ou les anims facultatives de plier/déplier du Trebuchet :
+     -vérifier self.cooldown_temps_mode>0 (Trebuchet)
      -vérifier self.cooldown_animation>0
    [liste des attributs]
-          [Entité] :  commun à toutes les entités (certains atiributs ne seront pas réutilisés dans les sous_classes  )
+          [Entite] :  commun à toutes les Entites (certains atiributs ne seront pas réutilisés dans les sous_classes  )
                [identification]
-                    #self.id = id : id unique pour chaque entité
-                    #self.type = "mot" :type de l'entité (castle ou legionnaire ou cavalerie (pour l'archer de cavalerie lourde) ou siege (pour le trebuchet) ou cataphractaire)
-                    #self.equipe="mot" : l'équipe appartient l'unité donc soit romains soit parthes
-                    #self.gen_type="mot": type global "Unités" ou "Buildings" (Buildings fait référence au gen_type de chateau)
+                    #self.id = id : id unique pour chaque Entite
+                    #self.type = "mot" :type de l'Entite (castle ou legionnaire ou cavalerie (pour l'archer de cavalerie lourde) ou siege (pour le trebuchet) ou cataphractaire)
+                    #self.equipe="mot" : l'équipe appartient l'Unite donc soit romains soit parthes
+                    #self.gen_type="mot": type global "Unites" ou "Buildings" (Buildings fait référence au gen_type de chateau)
                 [position]
-                    #self.x=float(x) :coordonnées centre de l'unité x
-                    #self.y=float(y) : coordonnées centre de l'unité y
+                    #self.x=float(x) :coordonnées centre de l'Unite x
+                    #self.y=float(y) : coordonnées centre de l'Unite y
                 [statistiques]
                     [vie]
-                        #self.pv_max=int : permet d'initialiser la vie de l'unité et d'avoir une barre de vie
-                        #self.pv=float : nombre de pv restant de l'unité
-                        #self.vivant=booléen : statut de l'unité True si en vie False si mort
+                        #self.pv_max=int : permet d'initialiser la vie de l'Unite et d'avoir une barre de vie
+                        #self.pv=float : nombre de pv restant de l'Unite
+                        #self.vivant=booléen : statut de l'Unite True si en vie False si mort
                     [Armure]             
                         #self.armor_melee=float : armure contre les attaques proches( de mélée)
                         #self.armor_pierce=float : armure contre les attaques distantess (tranchantes:pierce)
-                        #self.bonus_armor={} : c'est surtout pour les faiblesses de l'unité , sert au calcul de degat bonus (ici seul chateau a une faiblesse contre les trebuchets)
+                        #self.bonus_armor={} : c'est surtout pour les faiblesses de l'Unite , sert au calcul de degat bonus (ici seul chateau a une faiblesse contre les trebuchets)
                     [Attaque]
                         #self.attack_base=float : stat d'attaque
                         #self.attack_type="melee"   : définit si l'attaque vise l'armure pierce ou melee
-                        #self.bonus_attacks={} : bonus qui s'applique sur l'armure du même nom dans bonus_armor (ici seul les trébuchets ont des dégats bonus contre le chateau)
+                        #self.bonus_attacks={} : bonus qui s'applique sur l'armure du même nom dans bonus_armor (ici seul les Trebuchets ont des dégats bonus contre le chateau)
                         #self.portee=float : portée maximum de l'attaque
-                        #self.portee_min=float : attaque rendu possible seulement si l'unité cible est plus loin ou égal à la porté min (les balistes n'attaquent pas au corps à corps)
+                        #self.portee_min=float : attaque rendu possible seulement si l'Unite cible est plus loin ou égal à la porté min (les balistes n'attaquent pas au corps à corps)
                         #self.attaque_multiple=int  : nombres d'attaques en même temps (utile pour le chateau qui doit tirer 5 flèches donc 5*les dégats d'une flèche)   
                     [durrée rechargement]            
                         self.reload=float :rechargement avant attaque
@@ -335,20 +332,20 @@ class Cataphractaire_Elite(Unité):
                     #self.cooldown_animation=float :temps de recharge restante avant nouvelle atatque
                     #self.cooldown=float :temps restant de l'animation d'attaque
                 [cible]
-                    #self.cible_en_cours=None  :entité ciblé par l'ia
-           [Unité] : attributs additionnels spécifiques aux unités
+                    #self.cible_en_cours=None  :Entite ciblé par l'ia
+           [Unite] : attributs additionnels spécifiques aux Unites
                 [statistiques]
-                    #self.vitesse=float : vitesse de l'unité
-                    #self.chance={"Buildings":1,"Unités":1} : chance de toucher la cible selon si c'est une unité ou un bâtiment(le chateau)
+                    #self.vitesse=float : vitesse de l'Unite
+                    #self.chance={"Buildings":1,"Unites":1} : chance de toucher la cible selon si c'est une Unite ou un bâtiment(le chateau)
                 [destination_orientation]
-                    #self.destx=float(x) :destination x de l'unité
-                    #self.desty=float(y) :destination y de l'unité
+                    #self.destx=float(x) :destination x de l'Unite
+                    #self.desty=float(y) :destination y de l'Unite
                     #self.direction_x=0  :pour l'orientation des sprites suivant gauche/droite 1 droite -1 gauche 0 pas d'orientation suivant x
                     #self.direction_y=0  :pour l'orientation des sprites suivant haut/bas 1 haut -1 bas 0 pas d'orientation suivant y
-           [trébuchet]
+           [Trebuchet]
                 [mode]
-                    #self.mode="mot" : donne le mode actuel du trébuchet soit "immobile" correspond à l'état déplié ou mobile correspond à l'état plié
-                    #self.changer_mode=boolen : indique si trébuchet est actuellement en train de changer de mode
+                    #self.mode="mot" : donne le mode actuel du Trebuchet soit "immobile" correspond à l'état déplié ou mobile correspond à l'état plié
+                    #self.changer_mode=boolen : indique si Trebuchet est actuellement en train de changer de mode
                     #self.cooldown_temps_mode=float : temps restant avant de changer de mode
                     #self.temps_mode=float : temps nécessaire pour changer de mode
 
