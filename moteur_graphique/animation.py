@@ -11,4 +11,4 @@ class Animation:
         self.animation.append(frame)
 
     def get_frames(self, num: int) -> Texture:
-        return self.animation[num]
+        return self.animation[num % len(self.animation)]
