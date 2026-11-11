@@ -1,8 +1,8 @@
 import pygame
 import math
 
-from base_systeme.entite_systeme import Entité
-from base_systeme.entite_systeme import Unité
+from base_systeme.entite_systeme import Entite
+from base_systeme.entite_systeme import Unite
 from moteur_graphique.animation import Animation
 from moteur_graphique.texture_manager import TextureManager
 from moteur_graphique.window import *
@@ -70,42 +70,56 @@ class Engine:
 
         self._window.get_screen().blit(surface, top_left)
 
-    def render_all_sprites(self, liste_units: list[Entité]) -> None:
+    def render_all_sprites(self, liste_units: list[Entite]) -> None:
         liste_units = list_sprite_reorganisation(liste_units)
 
-        # TEST
-        for liste_unit in liste_units:
-            match liste_unit.type:
-                case "Trébuchet":
-                    self.render_trebu(liste_unit)
-                case "legionnaire":
-                    self.display_sprite("LEGIO_WN", 50, (liste_unit.x, liste_unit.y))
-                case "Archer_Cavalerie_Lourde":
-                    self.display_sprite("HCVAR_WN", 50, (liste_unit.x, liste_unit.y))
-                case "cataphractaire":
-                    self.display_sprite("CATAP_WN", 50, (liste_unit.x, liste_unit.y))
-                case "chateau":
-                    pass
-                case _:
-                    print(liste_unit.type)
+        for unite in liste_units:
+            if isinstance(unite, Unite):
+                match unite.type:
+                    case "trebuchet":
+                        self.render_unite(unite, "PTREB_W")
+                    case "legionnaire":
+                        self.render_unite(unite, "LEGIO_W")
+                    case "Archer_Cavalerie_Lourde":
+                        self.render_unite(unite, "HCVAR_W")
+                    case "cataphractaire":
+                        self.render_unite(unite, "CATAP_W")
+                    case _:
+                        print(unite.type)
 
-    def render_trebu(self, unite: Unité) -> None:
+            else:
+                pass
+
+    def render_unite(self, unite: Unite, name: str) -> None:
         direction: str = get_iso_direction(unite)
         if math.hypot(unite.destx - unite.x, unite.desty - unite.y) < 0.1:
-            self.display_sprite("PTREB_W" + direction, 50, (unite.x, unite.y))
+            self.display_sprite(name + direction, 50, (unite.x, unite.y))
         else:
             frame = (pygame.time.get_ticks() // 100) + unite.id
-            self.display_sprite("PTREB_W" + direction, 50, (unite.x, unite.y), frame)
+            self.display_sprite(name + direction, 50, (unite.x, unite.y), frame)
+
+    def draw_entity_hitbox(self, entity: Entite, tile_size: int) -> None:
+        center: tuple[int, int] = get_screen_position((self.width, self.height), (entity.x, entity.y), tile_size)
+
+        # Compensation isometrique (rotation 45 degre et ratio 2:1)
+        rayon_x: int = int(entity.hitbox * tile_size * math.sqrt(2))
+        rayon_y: int = rayon_x // 2
+
+        rect_englobant = pygame.Rect(center[0] - rayon_x, center[1] - rayon_y, rayon_x * 2, rayon_y * 2)
+        pygame.draw.ellipse(self._window.get_screen(), (255, 0, 0), rect_englobant, width=1)
 
     # Rendu de la fenetre
     # TODO : avec liste_units afficher les unite
-    def render(self, liste_units: list[Entité]) -> None:
+    def render(self, liste_units: list[Entite]) -> None:
         self.draw_floor(10)
 
         self.render_all_sprites(liste_units)
 
+        for unite in liste_units:
+            self.draw_entity_hitbox(unite, 50)
+
 
     # Charge toutes les textures
     def load_texture(self) -> None:
-        path: str = "Texture/"  # Ajuste selon ton répertoire de lancement
+        path: str = "Texture/"
         self._texture_manager.load_all_assets(path)

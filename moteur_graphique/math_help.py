@@ -1,7 +1,7 @@
 import math
 
-from base_systeme.entite_systeme import Entité
-from base_systeme.entite_systeme import Unité
+from base_systeme.entite_systeme import Entite
+from base_systeme.entite_systeme import Unite
 
 # Converti une position du jeu en position a l'ecran
 def get_screen_position(screen_co : tuple[int, int], position: tuple[float, float], tile_size: int) -> tuple[int, int]:
@@ -14,11 +14,11 @@ def get_screen_position(screen_co : tuple[int, int], position: tuple[float, floa
     return (screen_x, screen_y)
 
 # On tri les sprite en fonctions de leur profondeur calcule avec obj.x + obj.y
-def list_sprite_reorganisation(liste_units: list[Entité]) -> list[Entité]:
+def list_sprite_reorganisation(liste_units: list[Entite]) -> list[Entite]:
     return sorted(liste_units, key=lambda obj: obj.x + obj.y)
 
 # On convertie l'angle d'une unite en direction general
-def get_iso_direction(unite: Unité) -> str:
+def get_iso_direction(unite: Unite) -> str:
     dx: float = unite.destx - unite.x
     dy: float = unite.desty - unite.y
 
