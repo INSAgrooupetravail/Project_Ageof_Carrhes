@@ -19,30 +19,22 @@ def list_sprite_reorganisation(liste_units: list[Entite]) -> list[Entite]:
 
 # On convertie l'angle d'une unite en direction general
 def get_iso_direction(unite: Unite) -> str:
-    dx: float = unite.destx - unite.x
-    dy: float = unite.desty - unite.y
-
-    if abs(dx) < 0.05 and abs(dy) < 0.05:
-        return "SS"
-
-    grid_x: float = dx - dy
-    grid_y: float = dx + dy
-
-    angle: float = math.degrees(math.atan2(grid_y, grid_x))
-
-    if -22.5 <= angle < 22.5:
-        return "OO"
-    elif 22.5 <= angle < 67.5:
-        return "SO"
-    elif 67.5 <= angle < 112.5:
-        return "SS"
-    elif 112.5 <= angle < 157.5:
-        return "SE"
-    elif angle >= 157.5 or angle < -157.5:
-        return "EE"
-    elif -157.5 <= angle < -112.5:
-        return "NE"
-    elif -112.5 <= angle < -67.5:
-        return "NN"
-    else:
-        return "NO"
+    match (unite.direction_x, unite.direction_y):
+        case (1, -1):
+            return "OO"
+        case (1, 0):
+            return "SO"
+        case (1, 1):
+            return "SS"
+        case (0, 1):
+            return "SE"
+        case (-1, 1):
+            return "EE"
+        case (-1, 0):
+            return "NE"
+        case (-1, -1):
+            return "NN"
+        case (0, -1):
+            return "NO"
+        case _:
+            return "SS"
