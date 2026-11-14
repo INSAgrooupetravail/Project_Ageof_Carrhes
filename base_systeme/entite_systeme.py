@@ -63,7 +63,7 @@ class Entite:
              cible.recevoir_dégats(degats_totaux)
             else:
                 return False
-    def lancement_animation(self,cible:Entite)   :
+    def lancement_animation(self,cible:Entite):
         if self.peut_attaquer(cible):
             self.cooldown_animation=self.vitesse_animation
             self.cooldown=self.reload
@@ -105,6 +105,24 @@ class Unite(Entite):
     def definir_destination(self,x:float,y:float):
         self.destx=x
         self.desty=y
+    def mise_a_jour_orientation(self,dx:float,dy:float):
+        norme=math.hypot(dx,dy)
+        if norme>0:
+            x_normal=dx/norme
+            y_normal=dy/norme
+            seuil=math.sin(math.pi/8) #orientation en temps réel (0x pas d'orientation est(1) ou ouest(-1) , nord(1) ou sud(-1) pour y nord-est (1,1) , sud-ouest(-1,-1) ...
+            if x_normal>seuil:
+                self.direction_x=1
+            elif x_normal<(-seuil):
+                self.direction_x=-1
+            else:
+                self.direction_x=0
+            if y_normal>seuil:
+                self.direction_y=1
+            elif y_normal<(-seuil):
+                self.direction_y=-1
+            else:
+                self.direction_y=0
     def avancer(self,temps:float,autres_entites:list,carte:map):
         if self.vivant and self.vitesse>0 and self.cooldown_animation==0:
             distance=math.hypot(self.destx-self.x,self.desty-self.y)                  
@@ -114,7 +132,8 @@ class Unite(Entite):
                 nouveauy=(self.desty-self.y)/distance*pas_a_parcourir
                 futurx=self.x+nouveaux #après un temps delta que j'ai appellé nouveaux
                 futury=self.y+nouveauy
-                if nouveaux>0:     #orientation en temps réel (0x pas d'orientation est(-1) ou ouest(1) , nord(1) ou sud(-1) pour y
+                self.mise_a_jour_orientation(self.destx,self.desty)
+                if nouveaux>0:
                  self.direction_x=1
                 elif nouveaux<0:
                  self.direction_x=-1
@@ -164,7 +183,10 @@ class Unite(Entite):
                else:
                 return False
      else:
-                return False       
+                return False
+    def lancement_animation(self,cible:Entite):
+        super().lancement_animation(cible)
+        self.mise_a_jour_orientation(cible.x,cible.y)       
 class Chateau(Entite):
     def __init__(self, id,x:float,y:float,equipe:str):
         super().__init__(id,x,y,TYPE[0],equipe)
