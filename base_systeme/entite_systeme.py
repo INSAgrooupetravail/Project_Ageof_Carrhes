@@ -68,10 +68,18 @@ class Entite:
             self.cooldown_animation=self.vitesse_animation
             self.cooldown=self.reload
             self.cible_en_cours=cible
+            return "success"
+        else:
+            return "error"
     def recevoir_dégats(self,degats_totaux):
         self.pv=self.pv-degats_totaux
         if self.pv <= 0:
             self.vivant=False
+    def verifier_vivant(self):
+        if self.vivant==False: #peut être pratique pour actualiser la liste des entités sans manipuler les attributs
+            return False
+        else:
+            return True
     def actualiser_le_cooldown(self,temps:float):
         if self.vivant:
          if self.cooldown>0:
@@ -128,23 +136,13 @@ class Unite(Entite):
             distance=math.hypot(self.destx-self.x,self.desty-self.y)                  
             if distance>=0.05:
                 pas_a_parcourir=min(distance,self.vitesse*temps)
-                nouveaux=(self.destx-self.x)/distance*pas_a_parcourir
-                nouveauy=(self.desty-self.y)/distance*pas_a_parcourir
+                intermedx=(self.destx-self.x)
+                intermedy=(self.desty-self.y)
+                nouveaux=(intermedx/distance*pas_a_parcourir)
+                nouveauy=(intermedy/distance*pas_a_parcourir)
                 futurx=self.x+nouveaux #après un temps delta que j'ai appellé nouveaux
                 futury=self.y+nouveauy
-                self.mise_a_jour_orientation(self.destx,self.desty)
-                if nouveaux>0:
-                 self.direction_x=1
-                elif nouveaux<0:
-                 self.direction_x=-1
-                else:
-                 self.direction_x=0
-                if nouveauy>0:  
-                 self.direction_y=1
-                elif nouveauy<0:
-                 self.direction_y=-1
-                else:
-                 self.direction_y=0
+                self.mise_a_jour_orientation(intermedx,intermedy)
                 if carte.est_dans_la_carte(futurx,futury,self.hitbox):
                  for autre_Entite in autres_entites:
                     if autre_Entite is self or not autre_Entite.vivant:
@@ -185,8 +183,14 @@ class Unite(Entite):
      else:
                 return False
     def lancement_animation(self,cible:Entite):
-        super().lancement_animation(cible)
-        self.mise_a_jour_orientation(cible.x,cible.y)       
+        if self.peut_attaquer(cible):
+                    self.cooldown_animation=self.vitesse_animation
+                    self.cooldown=self.reload
+                    self.cible_en_cours=cible
+                    self.mise_a_jour_orientation(cible.x-self.x,cible.y-self.y)
+                    return "success"
+        else:
+            return "error"       
 class Chateau(Entite):
     def __init__(self, id,x:float,y:float,equipe:str):
         super().__init__(id,x,y,TYPE[0],equipe)
@@ -296,7 +300,7 @@ class Cataphractaire_Elite(Unite):
       -actualiser_animation_time prend en entrée le temps (dt) et la liste des Entites de la map
       -avancer prend en entrée le temps (dt) , la liste des Entites de la map et la map elle même
     -Il faut mettre à jour la liste des Entites de map au fur et à mesure du jeu
-      -suppression des Entites mortes
+      -suppression des Entites mortes, pour savoir si une entité est vivante on peut utiliser verifier_vivant() 
 
   [IA/formation/autre]
     -chaque Entite possède un id unique
@@ -308,6 +312,7 @@ class Cataphractaire_Elite(Unite):
       -peut_attaquer prend en entrée cible (la cible chosi doit etre une autre Entite) et renvoie True ou False
     -Si peut_attaquer est True alors l'ia utilise lancement_animation qui ordonne à l'Unite d'attaquer la cible
       -lancement_animation prend en entrée la cible (la cible chosi doit etre une autre Entite)
+      -au cas où la verif n'est pas effectuée et que les conditions ne sont pas vérifiées error sera renvoyé, sinon ce sera success , il faudrait que l'ia repertorie ces erreurs/succès avec des informations additionnnelles (position attaquant cible , id des deux entités... pour avoir le déroulé du combat)
     -Pour les légionnaires la méthode activer_shield_wall doit être appellé dans formation quand ce genre de formation est actif , la méthode verifier_shield_wall permet de vérifier que l'activation est bien possible et peut servir pour tester si formation fonctionne comme prévu
       -verifier_shiels_wall prend en entrée la liste des Entites sur la map (il n'est pas nécessaire de l'appeller selon moi)
       -activer_shield_wall prend en entrée la liste des Entites sur la map (nécessité de l'appeller régulièrement, voir en continu faudra voir)
