@@ -2,9 +2,13 @@ import pygame
 from typing import Optional
 
 class Texture:
-    def __init__(self, name: str, texture: pygame.Surface) -> None:
+    def __init__(self, name: str, texture: pygame.Surface, center: tuple[int, int] = (0, 0)) -> None:
         self.name: str = name
         self.texture: Optional[pygame.Surface] = texture
+
+        self.center: tuple[int, int] = center
+        if self.center == (0, 0):
+            self.center = (texture.get_width() // 2, texture.get_height() // 2)
 
     def destroy(self) -> None:
         self.texture = None
@@ -19,3 +23,6 @@ class Texture:
             )
 
         return self.texture
+
+    def get_center(self) -> tuple[int, int]:
+        return self.center
