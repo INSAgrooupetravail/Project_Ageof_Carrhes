@@ -1,3 +1,4 @@
+MARGE_MELEE_NON_BLOQUANTE=0.15
 PV_MAX={"chateau":10000,
         "legionnaire":75,
         "trebuchet":150,
