@@ -1,5 +1,5 @@
 import math
-from __futur__ import annotations
+from __future__ import annotations
 from base_systeme.donnees_entites import TYPE
 
 
@@ -379,6 +379,20 @@ class Formation:
             u.initialiser_changer_mode()
         if u.mode == "en-mouvement" and not u.changer_mode:
             u.definir_destination(px, py)
+
+    """gerer la portee d attaque du trebuchat
+    entre 4 et 16
+    et priorise le chateau"""
+    def _cible_trebuchet(self, u, ennemis):
+    a_portee = [e for e in ennemis 
+                    if u.portee_min <= math.hypot(e.x - u.x, e.y - u.y) <= u.portee]
+    for e in a_portee:
+        if e.type == CHATEAU:
+            return e
+    if self.cible in a_portee:
+        return self.cible
+    return min(a_portee, key=lambda e: math.hypot(e.x - u.x, e.y - u.y), default=None)
+    
     """archers eviter tout combat de meler proche sinon ils doivent tirer"""
     def _harceler(self, u, px, py, ennemis):
         fx = fy = 0.0
