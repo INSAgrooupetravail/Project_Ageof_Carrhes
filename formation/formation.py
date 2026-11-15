@@ -1,275 +1,443 @@
+from __future__ import annotations
+
 import math
 
-LINE = "LINE"
-DENSE = "DENSE"
-SPREAD = "SPREAD"
-WEDGE = "WEDGE"
-BOX = "BOX"
-FORMATIONS_POSSIBLES = [LINE, DENSE, SPREAD, WEDGE, BOX]
+from base_systeme.donnees_entites import TYPE
+
+"""
+Ce module combine les vérifications de ma version avec le placement en quinconce et le déplacement progressif proposés par Léandre.
+_ La classe `Formation` regroupe des unités vivantes de la même équipe. Elle vérifie les identifiants, les données numériques et la mobilité des unités. 
+_ Elle propose cinq formes : bloc, ligne, colonne, coin et cercle. L’espacement tient compte de la taille des unités. 
+_ Les places sont calculées autour d’une ancre, converties en coordonnées de la carte, puis attribuées selon la proximité.
+_ Le groupe avance à une vitesse adaptée à l’unité la plus lente, ralentit lorsque les unités s’éloignent de leurs places et tourne progressivement. 
+_ Il se réorganise après un ajout, un retrait ou une mort. Le module actualise aussi le shield wall des légionnaires et gère le repli, le déplacement et le déploiement des trébuchets.
+_ La simulation doit toujours appeler les méthodes de déplacement et de mise à jour des unités. 
+_ Le choix des cibles et les attaques restent à intégrer, en évitant les conflits d’ordres avec l’IA. 
+_ La recherche de chemin et la résolution des blocages ne sont pas prises en charge.
+_ Cette version reste une proposition à tester dans le système complet. 
+_ La dernière modification consistait uniquement à ajouter des commentaires en français, sans changer la logique."""
 
 
-def rotate(dx: float, dy: float, angle: float) -> tuple:
-    cos_a, sin_a = math.cos(angle), math.sin(angle)
-    return cos_a * dx - sin_a * dy, sin_a * dx + cos_a * dy
+
+LEGIONNAIRE = TYPE[1]
+TREBUCHET = TYPE[2]
+
+FORMES = ("bloc", "ligne", "colonne", "coin", "cercle")
+ESPACEMENT_SERRE = 0.41
+RACINE3_SUR_2 = math.sqrt(3) / 2
 
 
-def slot_to_world(anchor_x, anchor_y, dx, dy, angle) -> tuple:
-    rx, ry = rotate(dx, dy, angle)
-    return anchor_x + rx, anchor_y + ry
+def nombre_fini(valeur):
+    """Convertit une valeur en flottant et rejette NaN et l'infini."""
+    valeur = float(valeur)
+    if not math.isfinite(valeur):
+        raise ValueError("Une valeur finie est requise")
+    return valeur
+
+
+def centrer(places):
+    """Recentre les positions autour de l'origine."""
+    if not places:
+        return []
+
+    mx = sum(x for x, _ in places) / len(places)
+    my = sum(y for _, y in places) / len(places)
+    return [(x - mx, y - my) for x, y in places]
+
+
+def calculer_places(forme, n, espacement):
+    """Calcule les places locales sous la forme (avant, côté)."""
+    if forme not in FORMES:
+        raise ValueError(f"Forme inconnue : {forme}")
+    if n <= 0:
+        return []
+    if n == 1:
+        return [(0.0, 0.0)]
+
+    if forme == "cercle":
+        # Calculer le rayon à partir de la distance entre voisins.
+        rayon = espacement / (2 * math.sin(math.pi / n))
+        return [
+            (
+                rayon * math.cos(2 * math.pi * i / n),
+                rayon * math.sin(2 * math.pi * i / n),
+            )
+            for i in range(n)
+        ]
+
+    if forme == "coin":
+        places = []
+        rangee = 0
+
+        # Ajouter des rangées de largeur croissante.
+        while len(places) < n:
+            nombre = min(rangee + 1, n - len(places))
+            for i in range(nombre):
+                places.append((
+                    -rangee * espacement * RACINE3_SUR_2,
+                    (i - rangee / 2) * espacement,
+                ))
+            rangee += 1
+
+        return centrer(places)
+
+    largeur = {
+        "bloc": math.ceil(math.sqrt(n)),
+        "ligne": math.ceil(n / 2),
+        "colonne": min(2, n),
+    }[forme]
+
+    quinconce = forme != "colonne"
+    places = []
+
+    for i in range(n):
+        rangee, colonne = divmod(i, largeur)
+
+        # Décaler une rangée sur deux, sauf pour la colonne.
+        decalage = 0.5 * (rangee % 2) if quinconce else 0.0
+        profondeur = RACINE3_SUR_2 if quinconce else 1.0
+
+        places.append((
+            -rangee * espacement * profondeur,
+            (colonne + decalage) * espacement,
+        ))
+
+    return centrer(places)
+
+
+def local_vers_monde(ax, ay, angle, avant, cote):
+    """Convertit une position locale en coordonnées de la carte."""
+    c, s = math.cos(angle), math.sin(angle)
+    return (
+        ax + avant * c - cote * s,
+        ay + avant * s + cote * c,
+    )
 
 
 class Formation:
-    rotate = staticmethod(rotate)
-    slot_to_world = staticmethod(slot_to_world)
+    """Gère le placement, l'orientation et le déplacement d'un groupe."""
 
-    def __init__(self, units: list, shape: str = LINE,
-                 anchor: tuple = None, facing_angle: float = 0.0):
-        if shape not in FORMATIONS_POSSIBLES:
-            raise ValueError("Formation n'est pas valide")
-        self.units = []
-        for unit in units:
-            if getattr(unit, "vivant", False) and unit not in self.units:
-                self._validate_unit(unit)
-                self.units.append(unit)
-        self.shape = shape
-        self.facing_angle = self._finite(facing_angle)
-        if anchor is None:
-            self.anchor_x, self.anchor_y = self._compute_centroid()
+    def __init__(
+        self,
+        unites,
+        forme="bloc",
+        espacement=ESPACEMENT_SERRE,
+        orientation=0.0,
+    ):
+        """Initialise le groupe avec ses unités vivantes."""
+        if forme not in FORMES:
+            raise ValueError(f"Forme inconnue : {forme}")
+
+        self.unites = []
+        self.equipe = None
+
+        for unite in unites:
+            if unite.vivant:
+                self._valider_unite(unite)
+                self.unites.append(unite)
+                self.equipe = unite.equipe
+
+        self.forme = forme
+        self.espacement = self._valider_espacement(espacement)
+        self.orientation = nombre_fini(orientation)
+        self.orientation_cible = self.orientation
+        self.suivre_mouvement = True
+
+        # L'ancre sert de référence aux places de la formation.
+        self.ancre_x, self.ancre_y = self.centre()
+        self.destination = None
+        self.places = {}
+        self.erreur_cohesion = 0.0
+
+        self._recalculer_places()
+
+    def _valider_unite(self, unite):
+        """Vérifie la mobilité, l'équipe, l'identifiant et les données."""
+        if not callable(getattr(unite, "definir_destination", None)):
+            raise ValueError("Une unité mobile est requise")
+
+        if any(u.id == unite.id for u in self.unites):
+            raise ValueError("Identifiant déjà présent")
+
+        if self.unites and unite.equipe != self.equipe:
+            raise ValueError("Les unités doivent être de la même équipe")
+
+        for valeur in (unite.x, unite.y, unite.hitbox, unite.vitesse):
+            nombre_fini(valeur)
+
+        if unite.hitbox < 0 or unite.vitesse < 0:
+            raise ValueError("Hitbox et vitesse doivent être positives ou nulles")
+
+    @staticmethod
+    def _valider_espacement(valeur):
+        """Vérifie que l'espacement est fini et strictement positif."""
+        valeur = nombre_fini(valeur)
+        if valeur <= 0:
+            raise ValueError("L'espacement doit être positif")
+        return valeur
+
+    def centre(self):
+        """Renvoie la position moyenne des unités vivantes."""
+        vivants = [u for u in self.unites if u.vivant]
+        if not vivants:
+            # Conserver l'ancre si le groupe est vide.
+            return (
+                getattr(self, "ancre_x", 0.0),
+                getattr(self, "ancre_y", 0.0),
+            )
+
+        return (
+            sum(u.x for u in vivants) / len(vivants),
+            sum(u.y for u in vivants) / len(vivants),
+        )
+
+    def _espacement_effectif(self):
+        """Adapte l'espacement au diamètre de la plus grande unité."""
+        rayon = max((u.hitbox for u in self.unites), default=0.0)
+        return max(self.espacement, 2 * rayon + 0.01)
+
+    def place_monde(self, unite):
+        """Renvoie la position attribuée à l'unité sur la carte."""
+        avant, cote = self.places[unite.id]
+        return local_vers_monde(
+            self.ancre_x, self.ancre_y,
+            self.orientation, avant, cote,
+        )
+
+    def _recalculer_places(self):
+        """Recalcule les places et les attribue aux unités."""
+        locales = calculer_places(
+            self.forme,
+            len(self.unites),
+            self._espacement_effectif(),
+        )
+
+        disponibles = list(range(len(locales)))
+        self.places = {}
+
+        # Traiter les unités les plus éloignées de l'ancre en premier.
+        unites = sorted(
+            self.unites,
+            key=lambda u: math.hypot(
+                u.x - self.ancre_x, u.y - self.ancre_y
+            ),
+            reverse=True,
+        )
+
+        monde = [
+            local_vers_monde(
+                self.ancre_x, self.ancre_y,
+                self.orientation, avant, cote,
+            )
+            for avant, cote in locales
+        ]
+
+        for unite in unites:
+            # Choisir la place libre la plus proche.
+            indice = min(
+                disponibles,
+                key=lambda j: (
+                    (unite.x - monde[j][0]) ** 2
+                    + (unite.y - monde[j][1]) ** 2
+                ),
+            )
+            self.places[unite.id] = locales[indice]
+            disponibles.remove(indice)
+
+    def avancer_vers(self, x, y):
+        """Fixe la destination et active l'orientation automatique."""
+        self.destination = (nombre_fini(x), nombre_fini(y))
+        self.suivre_mouvement = True
+
+    def arreter(self):
+        """Arrête l'ancre sans interrompre le regroupement des unités."""
+        self.destination = None
+
+    def orienter(self, angle):
+        """Fixe l'orientation cible, en radians."""
+        self.orientation_cible = nombre_fini(angle)
+        self.suivre_mouvement = False
+
+    def changer_forme(self, forme, espacement=None):
+        """Change la forme et recalcule les places."""
+        if forme not in FORMES:
+            raise ValueError(f"Forme inconnue : {forme}")
+
+        nouvel_espacement = (
+            self.espacement if espacement is None
+            else self._valider_espacement(espacement)
+        )
+
+        self.forme = forme
+        self.espacement = nouvel_espacement
+        self._recalculer_places()
+
+    def ajouter_unite(self, unite):
+        """Ajoute une unité vivante après validation."""
+        if not unite.vivant:
+            return
+
+        self._valider_unite(unite)
+        self.unites.append(unite)
+        self.equipe = unite.equipe
+        self._recalculer_places()
+
+    def retirer_unite(self, unite):
+        """Retire l'unité, l'arrête et réorganise le groupe."""
+        if unite not in self.unites:
+            return
+
+        self.unites.remove(unite)
+        unite.definir_destination(unite.x, unite.y)
+
+        if callable(getattr(unite, "activer_shield_wall", None)):
+            unite.activer_shield_wall([])
+
+        if not self.unites:
+            self.equipe = None
+
+        self._recalculer_places()
+
+    def vitesse_max(self):
+        """Calcule la vitesse du groupe avec une marge de rattrapage."""
+        # Utiliser la vitesse de déplacement des trébuchets repliés.
+        vitesses = [
+            0.8 if u.type == TREBUCHET else u.vitesse
+            for u in self.unites
+        ]
+        return min(vitesses, default=0.0) * 0.92
+
+    def _mettre_a_jour_orientation(self, dt):
+        """Tourne progressivement vers l'orientation cible."""
+        # Prendre le chemin angulaire le plus court.
+        ecart = math.remainder(
+            self.orientation_cible - self.orientation,
+            2 * math.pi,
+        )
+        rayon = max(
+            1.0,
+            max(
+                (math.hypot(a, c) for a, c in self.places.values()),
+                default=1.0,
+            ),
+        )
+
+        # Limiter la rotation selon la taille et la vitesse du groupe.
+        pas = self.vitesse_max() * 0.9 / rayon * dt
+        self.orientation += max(-pas, min(pas, ecart))
+
+    def _gerer_trebuchet(self, unite, px, py):
+        """Gère le repli, le déplacement et le déploiement du trébuchet."""
+        if unite.changer_mode:
+            return
+
+        loin = math.hypot(unite.x - px, unite.y - py) > 0.3
+
+        if loin:
+            if unite.mode == "immobile":
+                unite.initialiser_changer_mode()
+            else:
+                unite.definir_destination(px, py)
         else:
-            self.anchor_x, self.anchor_y = map(self._finite, anchor)
-        self.dest_x, self.dest_y = self.anchor_x, self.anchor_y
-        self.slot_assignment = {}
-        self._assign_slots()
+            unite.definir_destination(unite.x, unite.y)
 
-    @staticmethod
-    def _finite(value):
-        value = float(value)
-        if not math.isfinite(value):
-            raise ValueError("Une valeur finie est requise")
-        return value
+            # Déployer uniquement lorsque l'ancre n'a plus de destination.
+            if (
+                self.destination is None
+                and unite.mode == "en-mouvement"
+            ):
+                unite.initialiser_changer_mode()
 
-    def _validate_unit(self, unit):
-        if not callable(getattr(unit, "definir_destination", None)):
-            raise ValueError("Une formation ne contient que des unites mobiles")
-        if any(u.id == unit.id for u in self.units):
-            raise ValueError("Les identifiants des unites doivent etre uniques")
-        if self.units and unit.equipe != self.units[0].equipe:
-            raise ValueError("Les unites doivent appartenir a la meme equipe")
-
-    def _compute_centroid(self) -> tuple:
-        vivants = [u for u in self.units if u.vivant]
-        if not vivants:
-            return 0.0, 0.0
-        return (sum(u.x for u in vivants) / len(vivants),
-                sum(u.y for u in vivants) / len(vivants))
-
-    def face_towards(self, target_x: float, target_y: float):
-        dx = self._finite(target_x) - self.anchor_x
-        dy = self._finite(target_y) - self.anchor_y
-        if math.hypot(dx, dy) > 1e-9:
-            self.set_facing(math.atan2(dy, dx))
-
-    face_toward = face_towards
-
-    def set_facing(self, angle: float):
-        self.facing_angle = self._finite(angle)
-        self._assign_slots()
-
-    def get_unit_count(self) -> int:
-        return sum(1 for u in self.units if u.vivant)
-
-    @staticmethod
-    def _center(offsets):
-        if not offsets:
-            return []
-        cx = sum(x for x, y in offsets) / len(offsets)
-        cy = sum(y for x, y in offsets) / len(offsets)
-        return [(x - cx, y - cy) for x, y in offsets]
-
-    def _slots_line(self, n: int, s: float) -> list:
-        if n <= 0:
-            return []
-        cols = min(n, 20)
-        offsets = []
-        for i in range(n):
-            row, col = divmod(i, cols)
-            count = min(cols, n - row * cols)
-            offsets.append((-row * s, (col - (count - 1) / 2) * s))
-        return self._center(offsets)
-
-    def _slots_grid(self, n: int, s: float) -> list:
-        if n <= 0:
-            return []
-        cols = math.ceil(math.sqrt(n))
-        return self._center([(i % cols * s, i // cols * s) for i in range(n)])
-
-    def _slots_box(self, n: int, s: float) -> list:
-        if n <= 0:
-            return []
-        guard_radius = max((u.hitbox for u in self.units if u.vivant), default=0.2)
-        r = max(0.5 + guard_radius + 0.01, n * s * math.sqrt(2) / 8)
-        offsets = []
-        for i in range(n):
-            t = i * 4 / n
-            side = int(t)
-            d = (t - side) * 2 * r
-            offsets.append(((r - d, r), (-r, r - d),
-                            (-r + d, -r), (r, -r + d))[side])
-        return offsets
-
-    _slot_box = _slots_box
-
-    def _slots_wedge(self, n: int, s: float) -> list:
-        offsets = []
-        row = 0
-        while len(offsets) < n:
-            count = min(row + 1, n - len(offsets))
-            for i in range(count):
-                offsets.append((-row * s * math.sqrt(3) / 2,
-                                (i - row / 2) * s))
-            row += 1
-        return self._center(offsets)
-
-    def _compute_slots(self):
-        vivants = [u for u in self.units if u.vivant]
-        spacing = {DENSE: 0.41, SPREAD: 0.70}.get(self.shape, 0.55)
-
-        spacing = max(spacing, 2 * max((u.hitbox for u in vivants), default=0) + 0.01)
-        builders = {LINE: self._slots_line, DENSE: self._slots_grid,
-                    SPREAD: self._slots_grid, BOX: self._slots_box,
-                    WEDGE: self._slots_wedge}
-        return builders[self.shape](len(vivants), spacing)
-
-    def _assign_slots(self):
-        vivants = [u for u in self.units if u.vivant]
-        slots = [slot_to_world(self.anchor_x, self.anchor_y, dx, dy,
-                               self.facing_angle) for dx, dy in self._compute_slots()]
-        self.slot_assignment = {}
-
-        vivants.sort(key=lambda u: math.hypot(u.x - self.anchor_x,
-                                           u.y - self.anchor_y), reverse=True)
-        for u in vivants:
-            slot = min(slots, key=lambda s: math.hypot(u.x - s[0], u.y - s[1]))
-            self.slot_assignment[u.id] = slot
-            slots.remove(slot)
-            u.definir_destination(*slot)
-
-    def set_destination(self, x: float, y: float):
-        x, y = self._finite(x), self._finite(y)
-        self.dest_x, self.dest_y = x, y
-
-    def _get_group_speed(self) -> float:
-        return min((u.vitesse for u in self.units if u.vivant), default=0.0)
-
-    def update(self, dt: float, autres_entites: list = None):
-        dt = self._finite(dt)
+    def mettre_a_jour(self, dt, entites):
+        """Actualise les places, le mouvement et le shield wall."""
+        dt = nombre_fini(dt)
         if dt < 0:
-            raise ValueError("dt doit etre positif ou nul")
-        self.reorganiser()
-        dx, dy = self.dest_x - self.anchor_x, self.dest_y - self.anchor_y
-        dist = math.hypot(dx, dy)
-        if self.units and dist > 1e-9 and self.est_en_place(0.05):
-            pas = min(dist, self._get_group_speed() * dt)
-            delta_x, delta_y = dx / dist * pas, dy / dist * pas
-            self.anchor_x += delta_x
-            self.anchor_y += delta_y
-            self.slot_assignment = {uid: (x + delta_x, y + delta_y)
-                                    for uid, (x, y) in self.slot_assignment.items()}
-        for u in self.units:
-            u.definir_destination(*self.slot_assignment[u.id])
-        self.appliquer_shield_wall(autres_entites)
+            raise ValueError("dt doit être positif ou nul")
+        if dt == 0:
+            return
 
-    def is_arrived(self, tolerance: float = 0.1) -> bool:
-        return (math.hypot(self.dest_x - self.anchor_x, self.dest_y - self.anchor_y)
-                <= tolerance and self.est_en_place(tolerance))
+        # Réorganiser la formation après la perte d'une unité.
+        vivants = [u for u in self.unites if u.vivant]
+        if len(vivants) != len(self.unites):
+            self.unites = vivants
+            self._recalculer_places()
 
-    def add_unit(self, unit):
-        if unit not in self.units and getattr(unit, "vivant", False):
-            self._validate_unit(unit)
-            self.units.append(unit)
-            self._assign_slots()
+        if not self.unites:
+            self.equipe = None
+            return
 
-    def remove_unit(self, unit):
-        if unit in self.units:
-            self.units.remove(unit)
-            unit.definir_destination(unit.x, unit.y)
-            if callable(getattr(unit, "activer_shield_wall", None)):
-                unit.activer_shield_wall([])
-            self._assign_slots()
+        # Mesurer l'écart moyen entre les unités et leurs places.
+        distances = [
+            math.hypot(
+                u.x - self.place_monde(u)[0],
+                u.y - self.place_monde(u)[1],
+            )
+            for u in self.unites
+        ]
+        self.erreur_cohesion = sum(distances) / len(distances)
 
-    def orienter_vers_ennemi_proche(self, ennemi: list) -> bool:
-        vivants = [e for e in ennemi if getattr(e, "vivant", False)
-                   and (not self.units or e.equipe != self.units[0].equipe)]
-        if not vivants:
-            return False
-        proche = min(vivants, key=lambda e: math.hypot(e.x - self.anchor_x,
-                                                      e.y - self.anchor_y))
-        self.face_towards(proche.x, proche.y)
-        return True
+        # Ralentir sans attendre un placement parfait de toutes les unités.
+        frein = (
+            1.0 if self.erreur_cohesion <= 0.35
+            else max(0.15, 1 - (self.erreur_cohesion - 0.35) / 1.6)
+        )
 
-    def est_en_place(self, tolerance: float = 0.15) -> bool:
-        for u in self.units:
-            if not u.vivant:
-                continue
-            slot = self.slot_assignment.get(u.id)
-            if slot is None or math.hypot(u.x - slot[0], u.y - slot[1]) > tolerance:
-                return False
-        return True
+        # Attendre le repli des trébuchets avant de déplacer l'ancre.
+        siege_indisponible = any(
+            u.type == TREBUCHET
+            and (u.changer_mode or u.mode != "en-mouvement")
+            for u in self.unites
+        )
 
-    def suggerer_formation(self, ennemis: list, proteger_cible: bool = False) -> str:
-        if proteger_cible:
-            return BOX
-        vivants = [e for e in ennemis if getattr(e, "vivant", False)]
-        if not vivants:
-            return LINE
-        nb_cavaliers = nb_archers = 0
-        for e in vivants:
-            type_e = e.type.lower()
-            if "archer" in type_e or "tirailleur" in type_e:
-                nb_archers += 1
-            elif "caval" in type_e or "cataphract" in type_e:
-                nb_cavaliers += 1
-        if nb_archers > nb_cavaliers:
-            return DENSE if self.get_unit_count() >= 9 else SPREAD
-        if nb_cavaliers:
-            return LINE
-        return WEDGE
+        if self.destination is not None:
+            tx, ty = self.destination
+            dx, dy = tx - self.ancre_x, ty - self.ancre_y
+            distance = math.hypot(dx, dy)
 
-    def set_shape(self, nouvelle_forme: str):
-        if nouvelle_forme not in FORMATIONS_POSSIBLES:
-            raise ValueError("Formation n'est pas valide")
-        if self.shape != nouvelle_forme:
-            self.shape = nouvelle_forme
-            self._assign_slots()
+            if self.suivre_mouvement and distance > 1e-9:
+                self.orientation_cible = math.atan2(dy, dx)
 
-    def reorganiser(self):
-        vivants = [u for u in self.units if u.vivant]
-        if len(vivants) != len(self.units):
-            self.units = vivants
-            self._assign_slots()
+            if not siege_indisponible:
+                # Limiter le déplacement pour ne pas dépasser la destination.
+                pas = min(distance, self.vitesse_max() * frein * dt)
+                if distance > 1e-9:
+                    self.ancre_x += dx / distance * pas
+                    self.ancre_y += dy / distance * pas
 
-    def _world_entities(self, autres_entites):
-        entites = list(autres_entites) if autres_entites is not None else []
-        seen = {id(e) for e in entites}
-        for u in self.units:
-            if id(u) not in seen:
-                entites.append(u)
-                seen.add(id(u))
+                if distance <= pas:
+                    self.destination = None
 
-        return list({id(e): e for e in entites}.values())
+        self._mettre_a_jour_orientation(dt)
 
-    def get_shield_wall_skill(self, autres_entites: list = None) -> list:
-        entites = self._world_entities(autres_entites)
-        return [u for u in self.units if u.vivant
-                and callable(getattr(u, "verifier_shield_wall", None))
-                and u.verifier_shield_wall(entites)]
+        for unite in self.unites:
+            px, py = self.place_monde(unite)
 
+            if unite.type == TREBUCHET:
+                # Replier avant le départ, même si l'unité est à sa place.
+                if (
+                    self.destination is not None
+                    and unite.mode == "immobile"
+                    and not unite.changer_mode
+                ):
+                    unite.initialiser_changer_mode()
+                else:
+                    self._gerer_trebuchet(unite, px, py)
+            else:
+                unite.definir_destination(px, py)
 
-    get_sheild_wall_skill = get_shield_wall_skill
+            if unite.type == LEGIONNAIRE:
+                unite.activer_shield_wall(entites)
 
-    def appliquer_shield_wall(self, autres_entites: list = None):
-        entites = self._world_entities(autres_entites)
-        for u in self.units:
-            if u.vivant and callable(getattr(u, "activer_shield_wall", None)):
+    def est_arrivee(self, tolerance=0.3):
+        """Vérifie que l'ancre est arrêtée et les unités à leurs places."""
+        tolerance = nombre_fini(tolerance)
+        if tolerance < 0:
+            raise ValueError("La tolérance doit être positive ou nulle")
 
-                u.activer_shield_wall(entites)
+        return self.destination is None and all(
+            math.hypot(
+                u.x - self.place_monde(u)[0],
+                u.y - self.place_monde(u)[1],
+            ) <= tolerance
+            for u in self.unites
+        )
