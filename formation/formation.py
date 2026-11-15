@@ -1,322 +1,275 @@
 import math
-import os
-import sys 
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 LINE = "LINE"
 DENSE = "DENSE"
 SPREAD = "SPREAD"
 WEDGE = "WEDGE"
 BOX = "BOX"
+FORMATIONS_POSSIBLES = [LINE, DENSE, SPREAD, WEDGE, BOX]
 
-FORMATIONS_POSSIBLES = [LINE , DENSE , SPREAD , WEDGE , BOX]
+
 def rotate(dx: float, dy: float, angle: float) -> tuple:
-    cos_a = math.cos(angle)
-    sin_a = math.sin(angle)
-    return cos_a * dx - sin_a * dy , sin_a * dx + cos_a * dy
-def slot_to_world(anchor_x: float, anchor_y: float, dx: float, dy: float, angle: float) -> tuple:
+    cos_a, sin_a = math.cos(angle), math.sin(angle)
+    return cos_a * dx - sin_a * dy, sin_a * dx + cos_a * dy
+
+
+def slot_to_world(anchor_x, anchor_y, dx, dy, angle) -> tuple:
     rx, ry = rotate(dx, dy, angle)
-    return anchor_x + rx , anchor_y + ry
+    return anchor_x + rx, anchor_y + ry
+
+
 class Formation:
-    def __init__(self, units : list, shape : str = LINE, anchor: tuple = None, facing_angle: float = 0.0):
-        self.units = [u for u in units if getattr(u , 'vivant', False)]
+    rotate = staticmethod(rotate)
+    slot_to_world = staticmethod(slot_to_world)
+
+    def __init__(self, units: list, shape: str = LINE,
+                 anchor: tuple = None, facing_angle: float = 0.0):
+        if shape not in FORMATIONS_POSSIBLES:
+            raise ValueError("Formation n'est pas valide")
+        self.units = []
+        for unit in units:
+            if getattr(unit, "vivant", False) and unit not in self.units:
+                self._validate_unit(unit)
+                self.units.append(unit)
         self.shape = shape
-        self.facing_angle = float(facing_angle)
-
-        if anchor is not None:
-            self.anchor_x = float(anchor[0])
-            self.anchor_y = float(anchor[1])
+        self.facing_angle = self._finite(facing_angle)
+        if anchor is None:
+            self.anchor_x, self.anchor_y = self._compute_centroid()
         else:
-            self.anchor_x , self.anchor_y = self._compute_centroid()
-
-
-        self.dest_x = self.anchor_x
-        self.dest_y = self.anchor_y
-
+            self.anchor_x, self.anchor_y = map(self._finite, anchor)
+        self.dest_x, self.dest_y = self.anchor_x, self.anchor_y
         self.slot_assignment = {}
         self._assign_slots()
+
+    @staticmethod
+    def _finite(value):
+        value = float(value)
+        if not math.isfinite(value):
+            raise ValueError("Une valeur finie est requise")
+        return value
+
+    def _validate_unit(self, unit):
+        if not callable(getattr(unit, "definir_destination", None)):
+            raise ValueError("Une formation ne contient que des unites mobiles")
+        if any(u.id == unit.id for u in self.units):
+            raise ValueError("Les identifiants des unites doivent etre uniques")
+        if self.units and unit.equipe != self.units[0].equipe:
+            raise ValueError("Les unites doivent appartenir a la meme equipe")
+
     def _compute_centroid(self) -> tuple:
-        vivants = [u for u in self.units if getattr(u , 'vivant' , False)]
+        vivants = [u for u in self.units if u.vivant]
         if not vivants:
-            return 0.0 , 0.0
-        cx = sum(u.x for u in vivants) / len(vivants)
-        cy = sum(u.y for u in vivants) / len(vivants)
-        return cx,cy 
-    def face_toward(self, target_x: float, target_y: float):
-        dx = target_x - self.anchor_x
-        dy = target_y - self.anchor_y
-        if abs(dx) > 1e-9 or abs(dy) > 1e-9:
-            self.facing_angle = math.atan2(dy , dx)
-            self._assign_slots()
+            return 0.0, 0.0
+        return (sum(u.x for u in vivants) / len(vivants),
+                sum(u.y for u in vivants) / len(vivants))
+
+    def face_towards(self, target_x: float, target_y: float):
+        dx = self._finite(target_x) - self.anchor_x
+        dy = self._finite(target_y) - self.anchor_y
+        if math.hypot(dx, dy) > 1e-9:
+            self.set_facing(math.atan2(dy, dx))
+
+    face_toward = face_towards
+
+    def set_facing(self, angle: float):
+        self.facing_angle = self._finite(angle)
+        self._assign_slots()
+
     def get_unit_count(self) -> int:
-        return len([u for u in self.units if getattr(u , 'vivant' , False)])
+        return sum(1 for u in self.units if u.vivant)
+
+    @staticmethod
+    def _center(offsets):
+        if not offsets:
+            return []
+        cx = sum(x for x, y in offsets) / len(offsets)
+        cy = sum(y for x, y in offsets) / len(offsets)
+        return [(x - cx, y - cy) for x, y in offsets]
+
     def _slots_line(self, n: int, s: float) -> list:
-        cols = min(n , 20)
-        rows = math.ceil(n / cols)
+        if n <= 0:
+            return []
+        cols = min(n, 20)
         offsets = []
         for i in range(n):
-            row = i // cols
-            col = i % cols
-            total_cols_this_row = min(cols, n - row * cols)
-            dx = (col - (total_cols_this_row - 1) / 2.0) * s 
-            dy = (row - (rows - 1) / 2.0) * s 
-            offsets.append((dx , dy))
-        return offsets
+            row, col = divmod(i, cols)
+            count = min(cols, n - row * cols)
+            offsets.append((-row * s, (col - (count - 1) / 2) * s))
+        return self._center(offsets)
+
     def _slots_grid(self, n: int, s: float) -> list:
+        if n <= 0:
+            return []
         cols = math.ceil(math.sqrt(n))
-        rows = math.ceil(n / cols)
+        return self._center([(i % cols * s, i // cols * s) for i in range(n)])
+
+    def _slots_box(self, n: int, s: float) -> list:
+        if n <= 0:
+            return []
+        guard_radius = max((u.hitbox for u in self.units if u.vivant), default=0.2)
+        r = max(0.5 + guard_radius + 0.01, n * s * math.sqrt(2) / 8)
         offsets = []
         for i in range(n):
-            row = i // cols
-            col = i %  cols 
-            dx = (col - (cols - 1) / 2.0) * s 
-            dy = (row - (rows - 1) / 2.0) * s 
-            offsets.append((dx,dy))
+            t = i * 4 / n
+            side = int(t)
+            d = (t - side) * 2 * r
+            offsets.append(((r - d, r), (-r, r - d),
+                            (-r + d, -r), (r, -r + d))[side])
         return offsets
 
-    def set_destination(self, x: float, y: float):
-        self.dest_x = float(x)
-        self.dest_y = float(y)
+    _slot_box = _slots_box
 
-    def _get_group_speed(self) -> float:
-        vivants = [u for u in self.units if getattr(u , 'vivant' , False)]
-        if not vivants:
-            return 0.0
-        
-        return min(getattr(u, 'vitesse', 1.0) for u in vivants)
-    
-    def update(self, dt: float, autres_entites: list = None):
-        if autres_entites is None:
-            autres_entites = []
-        self.reorganiser()
-        vivants = [u for u in self.units if getattr(u , 'vivant' , False)]
-        if not vivants:
-            return 
-        dx = self.dest_x - self.anchor_x
-        dy = self.dest_y - self.anchor_y
-        dist = math.hypot(dx , dy)
-
-        if dist > 0.05:
-            vitesse = self._get_group_speed()
-            pas = min(dist, vitesse * dt)
-            delta_x = (dx / dist) * pas
-            delta_y = (dy / dist) * pas
-            self.anchor_x += delta_x
-            self.anchor_y += delta_y
-
-            for u in vivants:
-                if u.id in self.slot_assignment:
-                    slot_x, slot_y = self.slot_assignment[u.id]
-                    nouveau_slot = (slot_x + delta_x , slot_y + delta_y)
-                    self.slot_assignment[u.id] = nouveau_slot
-
-                    if hasattr(u , 'definir_destination'):
-                        u.definir_destination(nouveau_slot[0], nouveau_slot[1])
-        for u in vivants:
-            if hasattr(u, 'avancer'):
-                u.avancer(dt, autres_entites)
-
-    def _assign_slots(self):
-        units_vivantes = [u for u in self.units if getattr(u , 'vivant' , False)]
-        n = len(units_vivantes)
-        if n == 0:
-            self.slot_assignment = {}
-            return 
-
-        spacing = 0.55
-        if self.shape == DENSE:
-            spacing = 0.41  
-        elif self.shape == SPREAD:
-            spacing = 0.70  
-
-        if self.shape == LINE:
-            offsets = self._slots_line(n, spacing)
-        elif self.shape == WEDGE:
-            offsets = self._slots_wedge(n, spacing)
-        elif self.shape == BOX:
-            offsets = self._slots_box(n, spacing)
-        else:
-            offsets = self._slots_grid(n, spacing)
-        
-        slots_monde = []
-        cos_a = math.cos(self.facing_angle)
-        sin_a = math.sin(self.facing_angle)
-
-        for dx, dy in offsets:
-            rx = cos_a * dx - sin_a * dy
-            ry = sin_a * dx + cos_a * dy
-            wx = self.anchor_x + rx
-            wy = self.anchor_y + ry 
-            slots_monde.append((wx , wy))
-        
-        self.slot_assignment = {}
-        slots_reste = list(slots_monde)
-
-        for u in units_vivantes:
-            if not slots_reste:
-                break
-        
-            meilleur_slot = min(slots_reste , key=lambda s : math.hypot(u.x - s[0] , u.y - s[1]))
-            self.slot_assignment[u.id] = meilleur_slot
-            slots_reste.remove(meilleur_slot)
-        
-            if hasattr(u, 'definir_destination'):
-                u.definir_destination(meilleur_slot[0], meilleur_slot[1])
-    def _slots_box(self , n : int , s : float) -> list:
-        offsets = []
-        layer = 1
-        while len(offsets) < n:
-            r = layer * s 
-            step = s 
-            x = -r 
-            while (x < r) and (len(offsets) < n):
-                offsets.append((x , r))
-                x += step 
-            y = r 
-            while (y > -r) and (len(offsets) < n):
-                offsets.append((r , y))
-                y -= step 
-            x = r 
-            while (x > -r) and (len(offsets) < n):
-                offsets.append((x , -r))
-                x -= step
-            y = -r
-            while (y < r) and (len(offsets) < n):
-                offsets.append((-r , y))
-                y += step 
-            layer += 1
-        return offsets
-    def _slots_wedge(self , n : int , s : float) -> list:
+    def _slots_wedge(self, n: int, s: float) -> list:
         offsets = []
         row = 0
-        placed = 0
-        while placed < n:
-            count_in_row = row + 1
-            for i in range(count_in_row):
-                if placed >= n:
-                    break;
-                dy = -row * s * 0.866
-                dx = (i - (count_in_row - 1) / 2.0) * s 
-                offsets.append((dx,dy))
-                placed += 1
+        while len(offsets) < n:
+            count = min(row + 1, n - len(offsets))
+            for i in range(count):
+                offsets.append((-row * s * math.sqrt(3) / 2,
+                                (i - row / 2) * s))
             row += 1
-        return offsets
-    def is_arrived(self , tolerance: float = 0.1) -> bool:
-        return math.hypot(self.dest_x - self.anchor_x , self.dest_y - self.anchor_y) <= tolerance
-    def add_unit(self , unit):
-        if unit not in self.units and getattr(unit , 'vivant' , False):
+        return self._center(offsets)
+
+    def _compute_slots(self):
+        vivants = [u for u in self.units if u.vivant]
+        spacing = {DENSE: 0.41, SPREAD: 0.70}.get(self.shape, 0.55)
+
+        spacing = max(spacing, 2 * max((u.hitbox for u in vivants), default=0) + 0.01)
+        builders = {LINE: self._slots_line, DENSE: self._slots_grid,
+                    SPREAD: self._slots_grid, BOX: self._slots_box,
+                    WEDGE: self._slots_wedge}
+        return builders[self.shape](len(vivants), spacing)
+
+    def _assign_slots(self):
+        vivants = [u for u in self.units if u.vivant]
+        slots = [slot_to_world(self.anchor_x, self.anchor_y, dx, dy,
+                               self.facing_angle) for dx, dy in self._compute_slots()]
+        self.slot_assignment = {}
+
+        vivants.sort(key=lambda u: math.hypot(u.x - self.anchor_x,
+                                           u.y - self.anchor_y), reverse=True)
+        for u in vivants:
+            slot = min(slots, key=lambda s: math.hypot(u.x - s[0], u.y - s[1]))
+            self.slot_assignment[u.id] = slot
+            slots.remove(slot)
+            u.definir_destination(*slot)
+
+    def set_destination(self, x: float, y: float):
+        x, y = self._finite(x), self._finite(y)
+        self.dest_x, self.dest_y = x, y
+
+    def _get_group_speed(self) -> float:
+        return min((u.vitesse for u in self.units if u.vivant), default=0.0)
+
+    def update(self, dt: float, autres_entites: list = None):
+        dt = self._finite(dt)
+        if dt < 0:
+            raise ValueError("dt doit etre positif ou nul")
+        self.reorganiser()
+        dx, dy = self.dest_x - self.anchor_x, self.dest_y - self.anchor_y
+        dist = math.hypot(dx, dy)
+        if self.units and dist > 1e-9 and self.est_en_place(0.05):
+            pas = min(dist, self._get_group_speed() * dt)
+            delta_x, delta_y = dx / dist * pas, dy / dist * pas
+            self.anchor_x += delta_x
+            self.anchor_y += delta_y
+            self.slot_assignment = {uid: (x + delta_x, y + delta_y)
+                                    for uid, (x, y) in self.slot_assignment.items()}
+        for u in self.units:
+            u.definir_destination(*self.slot_assignment[u.id])
+        self.appliquer_shield_wall(autres_entites)
+
+    def is_arrived(self, tolerance: float = 0.1) -> bool:
+        return (math.hypot(self.dest_x - self.anchor_x, self.dest_y - self.anchor_y)
+                <= tolerance and self.est_en_place(tolerance))
+
+    def add_unit(self, unit):
+        if unit not in self.units and getattr(unit, "vivant", False):
+            self._validate_unit(unit)
             self.units.append(unit)
             self._assign_slots()
-    def remove_unit(self , unit):
+
+    def remove_unit(self, unit):
         if unit in self.units:
             self.units.remove(unit)
-            self.slot_assignment.pop(unit.id , None)
+            unit.definir_destination(unit.x, unit.y)
+            if callable(getattr(unit, "activer_shield_wall", None)):
+                unit.activer_shield_wall([])
             self._assign_slots()
 
-    def orienter_vers_ennemi_proche(self , ennemi : list) -> bool:
-        ennemis_vivant = [e for e in ennemi if getattr(e , 'vivant' , False)]
-        if not ennemis_vivant:
+    def orienter_vers_ennemi_proche(self, ennemi: list) -> bool:
+        vivants = [e for e in ennemi if getattr(e, "vivant", False)
+                   and (not self.units or e.equipe != self.units[0].equipe)]
+        if not vivants:
             return False
-
-        ennemi_proche = min(ennemis_vivant , key= lambda e: math.hypot(e.x - self.anchor_x , e.y - self.anchor_y))
-
-        self.face_toward(ennemi_proche.x , ennemi_proche.y)
+        proche = min(vivants, key=lambda e: math.hypot(e.x - self.anchor_x,
+                                                      e.y - self.anchor_y))
+        self.face_towards(proche.x, proche.y)
         return True
 
-    def est_en_place(self , tolerance: float = 0.15) -> bool:
-        if not self.units:
-            return True 
-        for unit in self.units:
-            if not getattr(unit , 'vivant' , False):
-                continue 
-            slot = self.slot_assignment.get(unit.id)
-            if slot is None:
-                continue 
-            slot_x , slot_y = slot 
-            dist_au_slot = math.hypot(unit.x - slot_x , unit.y - slot_y)
-
-            if dist_au_slot > tolerance:
-                return False 
+    def est_en_place(self, tolerance: float = 0.15) -> bool:
+        for u in self.units:
+            if not u.vivant:
+                continue
+            slot = self.slot_assignment.get(u.id)
+            if slot is None or math.hypot(u.x - slot[0], u.y - slot[1]) > tolerance:
+                return False
         return True
+
     def suggerer_formation(self, ennemis: list, proteger_cible: bool = False) -> str:
         if proteger_cible:
-            return BOX 
-        ennemis_vivant = [e for e in ennemis if getattr(e , "vivant" , False)]
-        if not ennemis_vivant:
-            return LINE 
-        nb_cavaliers = 0
-        nb_archers = 0
-
-        for e in ennemis_vivant:
-            type_e = getattr(e , "type" , "").lower()
-            if "caval" in type_e or "cataphract" in type_e:
-                nb_cavaliers += 1
+            return BOX
+        vivants = [e for e in ennemis if getattr(e, "vivant", False)]
+        if not vivants:
+            return LINE
+        nb_cavaliers = nb_archers = 0
+        for e in vivants:
+            type_e = e.type.lower()
             if "archer" in type_e or "tirailleur" in type_e:
                 nb_archers += 1
-
+            elif "caval" in type_e or "cataphract" in type_e:
+                nb_cavaliers += 1
         if nb_archers > nb_cavaliers:
-            if self.get_unit_count() >= 9:
-                return DENSE
-            return SPREAD 
-        if nb_cavaliers > 0:
-            return LINE 
+            return DENSE if self.get_unit_count() >= 9 else SPREAD
+        if nb_cavaliers:
+            return LINE
         return WEDGE
 
-    def set_shape(self , nouvelle_forme: str):
+    def set_shape(self, nouvelle_forme: str):
         if nouvelle_forme not in FORMATIONS_POSSIBLES:
             raise ValueError("Formation n'est pas valide")
-        
-        if self.shape == nouvelle_forme:
-            return 
-        
-        self.shape = nouvelle_forme
-
-        self._assign_slots()
+        if self.shape != nouvelle_forme:
+            self.shape = nouvelle_forme
+            self._assign_slots()
 
     def reorganiser(self):
-        unites_vivantes = [u for u in self.units if getattr(u , "vivant" , False)]
-        if len(self.units) == len(unites_vivantes):
-            return 
-        self.units = unites_vivantes
-        if not self.units:
-            self.slot_assignment.clear()
-            return 
-        self._assign_slots()
+        vivants = [u for u in self.units if u.vivant]
+        if len(vivants) != len(self.units):
+            self.units = vivants
+            self._assign_slots()
 
-    def get_sheild_wall_skill(self) -> list:
-        SHIELD_WALL_MAX_DISTANCE = 0.42
-        SHIELD_WALL_MIN_ALLIES = 4
-        legionaries = [u for u in self.units if getattr(u , "vivant" , False) and getattr(u , "type" , "") == 'infanterie']
-        
-        shield_wall_unit = []
+    def _world_entities(self, autres_entites):
+        entites = list(autres_entites) if autres_entites is not None else []
+        seen = {id(e) for e in entites}
+        for u in self.units:
+            if id(u) not in seen:
+                entites.append(u)
+                seen.add(id(u))
 
-        for u1 in legionaries:
-            nb_allies_proche = 0
-            for u2 in legionaries:
-                if u2 is u1:
-                    continue 
-                dict_u2_u1 = math.hypot(u1.x - u2.x , u1.y - u2.y)
-                if dict_u2_u1 <= SHIELD_WALL_MAX_DISTANCE:
-                    nb_allies_proche += 1
-            if nb_allies_proche >= SHIELD_WALL_MIN_ALLIES:
-                shield_wall_unit.append(u1)
-        return shield_wall_unit
+        return list({id(e): e for e in entites}.values())
+
+    def get_shield_wall_skill(self, autres_entites: list = None) -> list:
+        entites = self._world_entities(autres_entites)
+        return [u for u in self.units if u.vivant
+                and callable(getattr(u, "verifier_shield_wall", None))
+                and u.verifier_shield_wall(entites)]
 
 
+    get_sheild_wall_skill = get_shield_wall_skill
 
+    def appliquer_shield_wall(self, autres_entites: list = None):
+        entites = self._world_entities(autres_entites)
+        for u in self.units:
+            if u.vivant and callable(getattr(u, "activer_shield_wall", None)):
 
-
-
-    
-
-         
-
-
-
-
-
-
-
-
-
+                u.activer_shield_wall(entites)
