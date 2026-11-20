@@ -1,6 +1,6 @@
 from prog import Prog
 
-# Init
+# Init du programme
 def main() -> None:
     prog = Prog()
     prog.init_prog()
