@@ -23,6 +23,17 @@ class map():
     def anti_hors_limite(self,x:float,y:float,hitbox:float):  # la méthode avancer dans unité appelle : est dans la carte et anti hors limite
         xbloqued=max(hitbox+self.limite_min_x,min(float(self.limite_max_x-hitbox),x))
         ybloqued=max(hitbox+self.limite_min_y,min(float(self.limite_max_y-hitbox),y)) # l'unité sortira pas même partiellement
+        if (xbloqued+hitbox>self.falaise_min_x and ybloqued+hitbox>self.falaise_min_y and xbloqued-hitbox<self.falaise_max_x and ybloqued-hitbox<self.falaise_max_y): #blocage pour les falaises du chateau
+            if abs(xbloqued)<abs(ybloqued):
+                if (ybloqued>0):
+                    ybloqued=self.falaise_max_y+hitbox
+                else:
+                    ybloqued=self.falaise_min_y-hitbox
+            else:
+                if (xbloqued>0):
+                    xbloqued=self.falaise_max_x+hitbox
+                else:
+                    xbloqued=self.falaise_min_x-hitbox
         return xbloqued,ybloqued
      
      

@@ -1,5 +1,6 @@
 from prog import Prog
 
+# Init du programme
 def main() -> None:
     prog = Prog()
     prog.init_prog()
@@ -8,4 +9,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-#123456

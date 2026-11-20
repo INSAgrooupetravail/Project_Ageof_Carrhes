@@ -37,7 +37,7 @@ class Entite:
              return False
           if not cible.vivant or cible.equipe == self.equipe or self.cooldown > 0:
              return False
-          portee_max=max(self.portee, self.hitbox+cible.hitbox)
+          portee_max=max(self.portee, self.hitbox+cible.hitbox+MARGE_MELEE_NON_BLOQUANTE) #on ajoute la marge pour pas bloquer l'attaque des légionnaires et des cataphractaires
           if abs(self.x-cible.x) > portee_max or abs(self.y -cible.y) > portee_max:
              return False
           distance=self.distance_avec(cible)
@@ -105,11 +105,14 @@ class Unite(Entite):
         self.direction_y:float=0
         self.gen_type:str="Unites"
         self.chance:dict[str,float]={"Buildings":1,"Unites":1}
-    def verifier_limites_OK(self,carte:map):
-        if carte.est_dans_la_carte(self.x,self.y,self.hitbox):
+    def verifier_limites_OK(self,x:float,y:float,carte:map):
+        if carte.est_dans_la_carte(x,y,self.hitbox):
             return True
         else:
-            self.x,self.y=carte.anti_hors_limite(self.x,self.y,self.hitbox)
+            return False
+    def appliquer_hors_limite(self,x:float,y:float,carte:map):
+        x,y=carte.anti_hors_limite(x,y,self.hitbox)
+        return x,y
     def definir_destination(self,x:float,y:float):
         self.destx=x
         self.desty=y
@@ -143,19 +146,18 @@ class Unite(Entite):
                 futurx=self.x+nouveaux #après un temps delta que j'ai appellé nouveaux
                 futury=self.y+nouveauy
                 self.mise_a_jour_orientation(intermedx,intermedy)
-                if carte.est_dans_la_carte(futurx,futury,self.hitbox):
-                 for autre_Entite in autres_entites:
+                if not (self.verifier_limites_OK(futurx,futury,carte)):
+                 futurx,futury=self.appliquer_hors_limite(futurx,futury,carte)   
+                for autre_Entite in autres_entites:
                     if autre_Entite is self or not autre_Entite.vivant:
                         continue
                     distance_future=math.hypot(futurx-autre_Entite.x,futury-autre_Entite.y)
                     rayon_min=self.hitbox+autre_Entite.hitbox
                     if distance_future<rayon_min:  #test de collision puisque les Unites ne peuvent pas se chevaucher
-                        return 0
+                        return "error"
                         #aucun changement de position
-                 self.x=futurx
-                 self.y=futury
-                else:
-                 self.x,self.y=carte.anti_hors_limite(futurx,futury,self.hitbox)
+                self.x=futurx
+                self.y=futury
         return 0
     def attaquer(self,cible:Entite):
      if cible.vivant and self.vivant:    
