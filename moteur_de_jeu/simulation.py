@@ -36,7 +36,6 @@ from IA.generaux import *
 class Simulation:
     def __init__(self):
         self.liste_units = []       # Liste qui contient les informations de manipulation de toutes les unités sur le terrain
-        self.formations = []        # Provisoire, en réflexion pour l'arrivée du module formations.py
         self.nb_iteration = 0       # Nombre de tours de la boucle principale depuis le début de la partie
         self.vainqueur = None
 
@@ -49,13 +48,15 @@ class Simulation:
         if self.vainqueur is not None:
             return True
 
-        if not units[0].vivant: # Si chateau détruit les rouge gagnent
-            self.vainqueur = "rouge"
-            return True
+        for unit in units:
+            if unit.type == "chateau" and not unit.vivant:  # Si chateau détruit les rouge gagnent
+                self.vainqueur = "rouge"
+                return True
 
-        if not(units[1].vivant     # Si tous les trébuchets
-            or units[2].vivant     # sont morts les bleus gagnent
-            or units[3].vivant) :
+            if all(not unit.vivant for unit in units if unit.type == "trebuchet"):    # Si tous les trébuchets sont morts les bleus gagnent
+                self.vainqueur = "bleue"
+                return True
+
 
             self.vainqueur = "bleue"
             return True
@@ -80,3 +81,6 @@ class Simulation:
 
         # Incrémenter le nombre de tours de boucle depuis le début de la partie.
         self.nb_iteration += 1
+
+        # Demander aux IA de produire des ordres pour ce tour :
+        #
