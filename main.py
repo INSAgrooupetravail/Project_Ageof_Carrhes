@@ -1,5 +1,6 @@
 from prog import Prog
 
+# Init
 def main() -> None:
     prog = Prog()
     prog.init_prog()
