@@ -4,19 +4,6 @@ import math
 
 from base_systeme.donnees_entites import TYPE
 
-"""
-Ce module combine les vérifications de ma version avec le placement en quinconce et le déplacement progressif proposés par Léandre.
-_ La classe `Formation` regroupe des unités vivantes de la même équipe. Elle vérifie les identifiants, les données numériques et la mobilité des unités. 
-_ Elle propose cinq formes : bloc, ligne, colonne, coin et cercle. L’espacement tient compte de la taille des unités. 
-_ Les places sont calculées autour d’une ancre, converties en coordonnées de la carte, puis attribuées selon la proximité.
-_ Le groupe avance à une vitesse adaptée à l’unité la plus lente, ralentit lorsque les unités s’éloignent de leurs places et tourne progressivement. 
-_ Il se réorganise après un ajout, un retrait ou une mort. Le module actualise aussi le shield wall des légionnaires et gère le repli, le déplacement et le déploiement des trébuchets.
-_ La simulation doit toujours appeler les méthodes de déplacement et de mise à jour des unités. 
-_ Le choix des cibles et les attaques restent à intégrer, en évitant les conflits d’ordres avec l’IA. 
-_ La recherche de chemin et la résolution des blocages ne sont pas prises en charge.
-_ Cette version reste une proposition à tester dans le système complet. 
-_ La dernière modification consistait uniquement à ajouter des commentaires en français, sans changer la logique."""
-
 
 
 LEGIONNAIRE = TYPE[1]
@@ -167,8 +154,7 @@ class Formation:
 
         if unite.hitbox < 0 or unite.vitesse < 0:
             raise ValueError("Hitbox et vitesse doivent être positives ou nulles")
-
-    @staticmethod
+            
     def _valider_espacement(valeur):
         """Vérifie que l'espacement est fini et strictement positif."""
         valeur = nombre_fini(valeur)
