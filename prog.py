@@ -1,6 +1,10 @@
 import pygame
+from base_systeme.enregistrer_log import *
 from moteur_graphique.engine import Engine
-
+log=Enregistrer_Log()
+#log.enregistrer('05m56s:','crassus','rom','01','test','pour_test')
+#log.enregistrer('05m57s:','crassus','rom','01','test','pour_test')
+#log.sauvegarder()
 class Prog:
     def __init__(self) -> None:
         self.width = 1280

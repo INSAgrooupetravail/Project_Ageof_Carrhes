@@ -9,7 +9,8 @@ class Gestion_de_la_clock:
         temps_ecoule_enms=self.horloge.tick(self.fps)
         temps_ecoule_final=(temps_ecoule_enms/1000)*self.multiplicateur_vitesse
         return temps_ecoule_final
-
+    def get_temps_ecoule(self):
+        return self.temps_ecoule_final
     def changer_vitesse(self,mv):
         self.multiplicateur_vitesse=mv
   
