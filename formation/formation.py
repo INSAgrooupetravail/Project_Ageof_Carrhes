@@ -155,7 +155,7 @@ class Formation:
         if unite.hitbox < 0 or unite.vitesse < 0:
             raise ValueError("Hitbox et vitesse doivent être positives ou nulles")
             
-    def _valider_espacement(valeur):
+    def _valider_espacement(self , valeur):
         """Vérifie que l'espacement est fini et strictement positif."""
         valeur = nombre_fini(valeur)
         if valeur <= 0:
